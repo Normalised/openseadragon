@@ -216,16 +216,19 @@
   * @property {Number} [minZoomImageRatio=0.9]
   *     The minimum percentage ( expressed as a number between 0 and 1 ) of
   *     the viewport height or width at which the zoom out will be constrained.
-  *     Setting it to 0, for example will allow you to zoom out infinitly.
+  *     Setting it to 0, for example will allow you to zoom out infinitely.
   *
   * @property {Number} [maxZoomPixelRatio=1.1]
   *     The maximum ratio to allow a zoom-in to affect the highest level pixel
   *     ratio. This can be set to Infinity to allow 'infinite' zooming into the
   *     image though it is less effective visually if the HTML5 Canvas is not
-  *     availble on the viewing device.
+  *     available on the viewing device.
   *
   * @property {Boolean} [autoResize=true]
   *     Set to false to prevent polling for viewer size changes. Useful for providing custom resize behavior.
+  *
+  * @property {Boolean} [fixImageZoomWhenResize=false]
+  *     Set to false to maintain Viewport zoom level. Set to true to maintain image zoom level.
   *
   * @property {Number} [pixelsPerWheelLine=40]
   *     For pixel-resolution scrolling devices, the number of pixels equal to one scroll line.
@@ -306,7 +309,7 @@
   *
   * @property {Number} [controlsFadeDelay=2000]
   *     The number of milliseconds to wait once the user has stopped interacting
-  *     with the interface before begining to fade the controls. Assumes
+  *     with the interface before beginning to fade the controls. Assumes
   *     showNavigationControl and autoHideControls are both true.
   *
   * @property {Number} [controlsFadeLength=1500]
@@ -323,12 +326,12 @@
   * @property {Number} [minPixelRatio=0.5]
   *     The higher the minPixelRatio, the lower the quality of the image that
   *     is considered sufficient to stop rendering a given zoom level.  For
-  *     example, if you are targeting mobile devices with less bandwith you may
+  *     example, if you are targeting mobile devices with less bandwidth you may
   *     try setting this to 1.5 or higher.
   *
   * @property {Boolean} [mouseNavEnabled=true]
   *     Is the user able to interact with the image via mouse or touch. Default
-  *     interactions include draging the image in a plane, and zooming in toward
+  *     interactions include dragging the image in a plane, and zooming in toward
   *     and away from the image.
   *
   * @property {Boolean} [navPrevNextWrap=false]
@@ -453,11 +456,13 @@ window.OpenSeadragon = window.OpenSeadragon || function( options ){
      * @since 1.0.0
      */
     /* jshint ignore:start */
+    // NOTE : grunt replace markers have been wrapped with strings
+    // to stop intellij idea marking the whole file as full of xml errors
     $.version = {
         versionStr: '<%= osdVersion.versionStr %>',
-        major: <%= osdVersion.major %>,
-        minor: <%= osdVersion.minor %>,
-        revision: <%= osdVersion.revision %>
+        major: '<%= osdVersion.major %>',
+        minor: '<%= osdVersion.minor %>',
+        revision: '<%= osdVersion.revision %>'
     };
     /* jshint ignore:end */
 
@@ -719,6 +724,7 @@ window.OpenSeadragon = window.OpenSeadragon || function( options ){
             maxZoomPixelRatio:      1.1, //-> higher allows 'over zoom' into pixels
             pixelsPerWheelLine:     40,
             autoResize:             true,
+            fixImageZoomWhenResize: false,
 
             //DEFAULT CONTROL SETTINGS
             showSequenceControl:     true,  //SEQUENCE
@@ -879,7 +885,7 @@ window.OpenSeadragon = window.OpenSeadragon || function( options ){
         /**
          * Determines the position of the upper-left corner of the element.
          * @function
-         * @param {Element|String} element - the elemenet we want the position for.
+         * @param {Element|String} element - the element we want the position for.
          * @returns {OpenSeadragon.Point} - the position of the upper left corner of the element.
          */
         getElementPosition: function( element ) {

@@ -1992,8 +1992,6 @@ function updateOnce( viewer ) {
 function resizeViewportAndRecenter( viewer, containerSize, oldBounds, oldCenter ) {
     var viewport = viewer.viewport;
 
-    viewport.resize( containerSize, true );
-
     // We try to remove blanks as much as possible
     var imageHeight = 1 / viewer.source.aspectRatio;
     var newWidth = oldBounds.width <= 1 ? oldBounds.width : 1;
@@ -2006,7 +2004,19 @@ function resizeViewportAndRecenter( viewer, containerSize, oldBounds, oldCenter 
         newWidth,
         newHeight
         );
-    viewport.fitBounds( newBounds, true );
+
+    if(viewer.fixImageZoomWhenResize) {
+      // TODO : Can probably do something with bounds calculations which
+      // maintains image zoom level rather than the update, check, force zoom dance
+      var oldImageZoom = viewport.viewportToImageZoom(viewport.getZoom());
+      viewport.resizeToFit( containerSize, true, newBounds );
+      var newImageZoom = viewport.viewportToImageZoom(viewport.getZoom());
+      if(newImageZoom != oldImageZoom) {
+        viewport.zoomTo(viewport.imageToViewportZoom(oldImageZoom), viewport.getCenter(), true);
+      }
+    } else {
+      viewport.resizeToFit( containerSize, true, newBounds );
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////

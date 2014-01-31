@@ -707,7 +707,41 @@ $.Viewport.prototype = /** @lends OpenSeadragon.Viewport.prototype */{
 
         return this.fitBounds( newBounds, true );
     },
+  /**
+   * When the vieport is resized the original code first called resize which calls fitBounds
+   * then it calculated some new bounds and called fitBounds again.
+   * This just updates container size, sends the event and fits the bounds
+   * @function
+   * @return {OpenSeadragon.Viewport} Chainable.
+   * @fires OpenSeadragon.Viewer.event:resize
+   */
+  resizeToFit: function( newContainerSize, maintain, newBounds ) {
 
+    this.containerSize = new $.Point(
+        newContainerSize.x,
+        newContainerSize.y
+    );
+
+    if( this.viewer ){
+      /**
+       * Raised when the viewer is resized (see {@link OpenSeadragon.Viewport#resize}).
+       *
+       * @event resize
+       * @memberof OpenSeadragon.Viewer
+       * @type {object}
+       * @property {OpenSeadragon.Viewer} eventSource - A reference to the Viewer which raised this event.
+       * @property {OpenSeadragon.Point} newContainerSize
+       * @property {Boolean} maintain
+       * @property {?Object} userData - Arbitrary subscriber-defined object.
+       */
+      this.viewer.raiseEvent( 'resize', {
+        newContainerSize: newContainerSize,
+        maintain: maintain
+      });
+    }
+
+    return this.fitBounds( newBounds, true );
+  },
     /**
      * @function
      */
