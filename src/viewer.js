@@ -35,10 +35,11 @@
 (function( $ ){
 
 // dictionary from hash to private properties
-var THIS = {},
+var ViewerStateMap = {},
+
 // We keep a list of viewers so we can 'wake-up' each viewer on
 // a page after toggling between fullpage modes
-    VIEWERS = {};
+VIEWERS = {};
 
 /**
  *
@@ -60,6 +61,8 @@ var THIS = {},
  *
  **/
 $.Viewer = function( options ) {
+
+    $.console.log('Create Viewer %O', options);
 
     var args  = arguments,
         _this = this,
@@ -147,10 +150,9 @@ $.Viewer = function( options ) {
         source:         null,
         /**
          * Handles rendering of tiles in the viewer. Created for each TileSource opened.
-         * @member {OpenSeadragon.Drawer} drawer
+         * @member {OpenSeadragon.Drawer} drawers
          * @memberof OpenSeadragon.Viewer#
          */
-        drawer:         null,
         drawers:        [],
         /**
          * Handles coordinate-related functionality - zoom, pan, rotation, etc. Created for each TileSource opened.
@@ -164,11 +166,6 @@ $.Viewer = function( options ) {
          */
         navigator:      null,
 
-        //A collection viewport is a separate viewport used to provide
-        //simultaneous rendering of sets of tiles
-        collectionViewport:     null,
-        collectionDrawer:       null,
-
         //UI image resources
         //TODO: rename navImages to uiImages
         navImages:      null,
@@ -176,33 +173,28 @@ $.Viewer = function( options ) {
         //interface button controls
         buttons:        null,
 
-        //TODO: this is defunct so safely remove it
-        profiler:       null
+        // Don't add any controls
+        noControlDock:  false
 
     }, $.DEFAULT_SETTINGS, options );
 
     if ( typeof( this.hash) === "undefined" ) {
         throw new Error("A hash must be defined, either by specifying options.id or options.hash.");
     }
-    if ( typeof( THIS[ this.hash ] ) !== "undefined" ) {
+    if ( typeof( ViewerStateMap[ this.hash ] ) !== "undefined" ) {
         // We don't want to throw an error here, as the user might have discarded
         // the previous viewer with the same hash and now want to recreate it.
         $.console.warn("Hash " + this.hash + " has already been used.");
     }
 
     //Private state properties
-    THIS[ this.hash ] = {
+    ViewerStateMap[ this.hash ] = {
         "fsBoundsDelta":     new $.Point( 1, 1 ),
         "prevContainerSize": null,
         "animating":         false,
         "forceRedraw":       false,
         "mouseInside":       false,
         "group":             null,
-        // whether we should be continuously zooming
-        "zooming":           false,
-        // how much we should be continuously zooming by
-        "zoomFactor":        null,
-        "lastZoomTime":      null,
         // did we decide this viewer has a sequence of tile sources
         "sequenced":         false,
         "sequence":          0,
@@ -220,80 +212,18 @@ $.Viewer = function( options ) {
         _this._showMessage( msg );
     });
 
-    $.ControlDock.call( this, options );
+    // Create a container
+    this.container = $.makeFormContainer();
 
-    //Deal with tile sources
-    var initialTileSource;
-
-    if ( this.xmlPath  ){
-        //Deprecated option.  Now it is preferred to use the tileSources option
-        this.tileSources = [ this.xmlPath ];
-    }
-
-    if ( this.tileSources  ){
-        // tileSources is a complex option...
-        //
-        // It can be a string, object, or an array of any of strings and objects.
-        // At this point we only care about if it is an Array or not.
-        //
-        if( $.isArray( this.tileSources ) ){
-
-            //must be a sequence of tileSource since the first item
-            //is a legacy tile source
-            if( this.tileSources.length > 1 ){
-                THIS[ this.hash ].sequenced = true;
-            }
-            
-            //Keeps the initial page within bounds
-            if ( this.initialPage > this.tileSources.length - 1 ){
-                this.initialPage = this.tileSources.length - 1;
-            }
-            
-            initialTileSource = this.tileSources[ this.initialPage ];
-            
-            //Update the sequence (aka currrent page) property
-            THIS[ this.hash ].sequence = this.initialPage;
-        } else {
-            initialTileSource = this.tileSources;
-        }
-    }
+    this.controls = [];
 
     this.element              = this.element || document.getElementById( this.id );
     this.canvas               = $.makeNeutralElement( "div" );
     this.keyboardCommandArea  = $.makeNeutralElement( "textarea" );
 
-    this.canvas.className = "openseadragon-canvas";
-    (function( style ){
-        style.width    = "100%";
-        style.height   = "100%";
-        style.overflow = "hidden";
-        style.position = "absolute";
-        style.top      = "0px";
-        style.left     = "0px";
-    }(  this.canvas.style ));
-
-    //the container is created through applying the ControlDock constructor above
-    this.container.className = "openseadragon-container";
-    (function( style ){
-        style.width     = "100%";
-        style.height    = "100%";
-        style.position  = "relative";
-        style.overflow  = "hidden";
-        style.left      = "0px";
-        style.top       = "0px";
-        style.textAlign = "left";  // needed to protect against
-    }( this.container.style ));
-
-    this.keyboardCommandArea.className = "keyboard-command-area";
-    (function( style ){
-        style.width    = "100%";
-        style.height   = "100%";
-        style.overflow = "hidden";
-        style.position = "absolute";
-        style.top      = "0px";
-        style.left     = "0px";
-        style.resize   = "none";
-    }(  this.keyboardCommandArea.style ));
+    this.configureElement(this.canvas, "openseadragon-canvas", true);
+    this.configureElement(this.container, "openseadragon-container", false, {textAlign:"left"});
+    this.configureElement(this.keyboardCommandArea, "keyboard-command-area", true);
 
     this.container.insertBefore( this.canvas, this.container.firstChild );
     this.container.insertBefore( this.keyboardCommandArea, this.container.firstChild );
@@ -307,69 +237,8 @@ $.Viewer = function( options ) {
     this.bodyOverflow   = document.body.style.overflow;
     this.docOverflow    = document.documentElement.style.overflow;
 
-    this.keyboardCommandArea.innerTracker = new $.MouseTracker({
-            _this : this,
-            element:            this.keyboardCommandArea,
-            focusHandler:       function( event ){
-                if ( !event.preventDefaultAction ) {
-                    var point    = $.getElementPosition( this.element );
-                    window.scrollTo( 0, point.y );
-                }
-            },
-
-            keyHandler:         function( event ){
-                if ( !event.preventDefaultAction ) {
-                    switch( event.keyCode ){
-                        case 61://=|+
-                            _this.viewport.zoomBy(1.1);
-                            _this.viewport.applyConstraints();
-                            return false;
-                        case 45://-|_
-                            _this.viewport.zoomBy(0.9);
-                            _this.viewport.applyConstraints();
-                            return false;
-                        case 48://0|)
-                            _this.viewport.goHome();
-                            _this.viewport.applyConstraints();
-                            return false;
-                        case 119://w
-                        case 87://W
-                        case 38://up arrow
-                            if ( event.shift ) {
-                                _this.viewport.zoomBy(1.1);
-                            } else {
-                                _this.viewport.panBy(new $.Point(0, -0.05));
-                            }
-                            _this.viewport.applyConstraints();
-                            return false;
-                        case 115://s
-                        case 83://S
-                        case 40://down arrow
-                            if ( event.shift ) {
-                                _this.viewport.zoomBy(0.9);
-                            } else {
-                                _this.viewport.panBy(new $.Point(0, 0.05));
-                            }
-                            _this.viewport.applyConstraints();
-                            return false;
-                        case 97://a
-                        case 37://left arrow
-                            _this.viewport.panBy(new $.Point(-0.05, 0));
-                            _this.viewport.applyConstraints();
-                            return false;
-                        case 100://d
-                        case 39://right arrow
-                            _this.viewport.panBy(new $.Point(0.05, 0));
-                            _this.viewport.applyConstraints();
-                            return false;
-                        default:
-                            //console.log( 'navigator keycode %s', event.keyCode );
-                            return true;
-                    }
-                }
-            }
-        }).setTracking( true ); // default state
-
+    this.viewerControls = new $.ViewerControls(this, ViewerStateMap);
+    this.keyboardCommandArea.innerTracker = this.viewerControls.bindKeyControls();
 
     this.innerTracker = new $.MouseTracker({
         element:            this.canvas,
@@ -390,20 +259,21 @@ $.Viewer = function( options ) {
         releaseHandler:     $.delegate( this, onContainerRelease )
     }).setTracking( this.mouseNavEnabled ? true : false ); // always tracking
 
-    if( this.toolbar ){
+    if( this.toolbar && !this.noControlDock ){
+        $.console.log('Create viewer toolbar ' + this.toolbar );
         this.toolbar = new $.ControlDock({ element: this.toolbar });
     }
 
-    this.bindStandardControls();
-    this.bindSequenceControls();
+    this.viewerControls.bindStandardControls(this);
+    this.viewerControls.bindSequenceControls(this);
 
-    if ( initialTileSource ) {
-        this.open( initialTileSource );
-
-        if ( this.tileSources.length > 1 ) {
-            this._updateSequenceButtons( this.initialPage );
-        }
-    }
+//    if ( initialTileSource ) {
+//        this.open( initialTileSource );
+//
+//        if ( this.tileSources.length > 1 ) {
+//            this._updateSequenceButtons( this.initialPage );
+//        }
+//    }
 
     for ( i = 0; i < this.customControls.length; i++ ) {
         this.addControl(
@@ -412,47 +282,35 @@ $.Viewer = function( options ) {
         );
     }
 
-    $.requestAnimationFrame( function(){
-        beginControlsAutoHide( _this );
-    } );    // initial fade out
+    this.autoHideHandler = $.delegate( this, this.beginControlsAutoHide);
+    $.requestAnimationFrame(this.autoHideHandler);
 
 };
 
 $.extend( $.Viewer.prototype, $.EventSource.prototype, $.ControlDock.prototype, /** @lends OpenSeadragon.Viewer.prototype */{
 
-
+    configureElement:function(element, name, isAbsolute, extraStyles) {
+        element.className = name;
+        (function( style ){
+            style.width    = "100%";
+            style.height   = "100%";
+            style.overflow = "hidden";
+            style.position = isAbsolute ? "absolute" : "relative";
+            style.top      = "0px";
+            style.left     = "0px";
+            if(extraStyles != null) {
+                for(var s in extraStyles) {
+                    style[s] = extraStyles[s];
+                }
+            }
+        }( element.style ));
+    },
     /**
      * @function
      * @return {Boolean}
      */
     isOpen: function () {
         return !!this.source;
-    },
-
-    /**
-     * A deprecated function, renamed to 'open' to match event name and
-     * match current 'close' method.
-     * @function
-     * @param {String} dzi xml string or the url to a DZI xml document.
-     * @return {OpenSeadragon.Viewer} Chainable.
-     *
-     * @deprecated - use {@link OpenSeadragon.Viewer#open} instead.
-     */
-    openDzi: function ( dzi ) {
-        return this.open( dzi );
-    },
-
-    /**
-     * A deprecated function, renamed to 'open' to match event name and
-     * match current 'close' method.
-     * @function
-     * @param {String|Object|Function} See OpenSeadragon.Viewer.prototype.open
-     * @return {OpenSeadragon.Viewer} Chainable.
-     *
-     * @deprecated - use {@link OpenSeadragon.Viewer#open} instead.
-     */
-    openTileSource: function ( tileSource ) {
-        return this.open( tileSource );
     },
 
     /**
@@ -477,85 +335,17 @@ $.extend( $.Viewer.prototype, $.EventSource.prototype, $.ControlDock.prototype, 
      * @fires OpenSeadragon.Viewer.event:open-failed
      */
     open: function ( tileSource ) {
-        var _this = this,
-            customTileSource,
-            readySource,
-            $TileSource,
-            options;
 
-        _this._hideMessage();
+        $.console.log('Viewer::open tile source %O',tileSource);
 
-        //allow plain xml strings or json strings to be parsed here
-        if( $.type( tileSource ) == 'string' ){
-            if( tileSource.match(/\s*<.*/) ){
-                tileSource = $.parseXml( tileSource );
-            }else if( tileSource.match(/\s*[\{\[].*/) ){
-                /*jshint evil:true*/
-                tileSource = eval( '('+tileSource+')' );
-            }
-        }
+        this._hideMessage();
 
-        setTimeout(function(){
-            if ( $.type( tileSource ) == 'string') {
-                //If its still a string it means it must be a url at this point
-                tileSource = new $.TileSource( tileSource, function( event ){
-                    openTileSource( _this, event.tileSource );
-                });
-                tileSource.addHandler( 'open-failed', function ( event ) {
-                    /**
-                     * Raised when an error occurs loading a TileSource.
-                     *
-                     * @event open-failed
-                     * @memberof OpenSeadragon.Viewer
-                     * @type {object}
-                     * @property {OpenSeadragon.Viewer} eventSource - A reference to the Viewer which raised the event.
-                     * @property {String} message
-                     * @property {String} source
-                     * @property {?Object} userData - Arbitrary subscriber-defined object.
-                     */
-                    _this.raiseEvent( 'open-failed', event );
-                });
-
-            } else if ( $.isPlainObject( tileSource ) || tileSource.nodeType ){
-                if( $.isFunction( tileSource.getTileUrl ) ){
-                    //Custom tile source
-                    customTileSource = new $.TileSource(tileSource);
-                    customTileSource.getTileUrl = tileSource.getTileUrl;
-                    openTileSource( _this, customTileSource );
-                } else {
-                    //inline configuration
-                    $TileSource = $.TileSource.determineType( _this, tileSource );
-                    if ( !$TileSource ) {
-                        /***
-                         * Raised when an error occurs loading a TileSource.
-                         *
-                         * @event open-failed
-                         * @memberof OpenSeadragon.Viewer
-                         * @type {object}
-                         * @property {OpenSeadragon.Viewer} eventSource - A reference to the Viewer which raised the event.
-                         * @property {String} message
-                         * @property {String} source
-                         * @property {?Object} userData - Arbitrary subscriber-defined object.
-                         */
-                        _this.raiseEvent( 'open-failed', {
-                            message: "Unable to load TileSource",
-                            source: tileSource
-                        });
-                        return;
-                    }
-                    options = $TileSource.prototype.configure.apply( _this, [ tileSource ]);
-                    readySource = new $TileSource( options );
-                    openTileSource( _this, readySource );
-                }
-            } else {
-                //can assume it's already a tile source implementation
-                openTileSource( _this, tileSource );
-            }
-        }, 1);
+        var promise = $.TileSourceFactory.create(this, tileSource);
+        $.console.log('Tile Source Promise %O',promise.inspect());
+        promise.then( $.delegate(this, tileSourceCreateSuccess), $.delegate(this, tileSourceCreateError));
 
         return this;
     },
-
 
     /**
      * @function
@@ -572,15 +362,16 @@ $.extend( $.Viewer.prototype, $.EventSource.prototype, $.ControlDock.prototype, 
             this.navigator.close();
         }
 
-        if ( this.drawer ) {
-            this.drawer.clearOverlays();
+        if ( this.drawers ) {
+            for(var i=0;i<this.drawers.length;i++) {
+                this.drawers[i].clearOverlays();
+            }
         }
 
         this.source     = null;
-        this.drawer     = null;
+        this.drawers     = null;
 
         this.viewport   = this.preserveViewport ? this.viewport : null;
-        //this.profiler   = null;
         if (this.canvas){
             this.canvas.innerHTML = "";
         }
@@ -698,9 +489,9 @@ $.extend( $.Viewer.prototype, $.EventSource.prototype, $.ControlDock.prototype, 
      */
     setControlsEnabled: function( enabled ) {
         if( enabled ){
-            abortControlsAutoHide( this );
+            this.abortControlsAutoHide();
         } else {
-            beginControlsAutoHide( this );
+            this.beginControlsAutoHide();
         }
         /**
          * Raised when the navigation controls are shown or hidden (see {@link OpenSeadragon.Viewer#setControlsEnabled}).
@@ -722,7 +513,7 @@ $.extend( $.Viewer.prototype, $.EventSource.prototype, $.ControlDock.prototype, 
      * @return {Boolean}
      */
     isFullPage: function () {
-        return THIS[ this.hash ].fullPage;
+        return ViewerStateMap[ this.hash ].fullPage;
     },
 
 
@@ -801,10 +592,10 @@ $.extend( $.Viewer.prototype, $.EventSource.prototype, $.ControlDock.prototype, 
             //them as touch events on the document body.  Thus we remove and store
             //the bodies elements and replace them when we leave full screen.
             this.previousBody = [];
-            THIS[ this.hash ].prevElementParent = this.element.parentNode;
-            THIS[ this.hash ].prevNextSibling = this.element.nextSibling;
-            THIS[ this.hash ].prevElementWidth = this.element.style.width;
-            THIS[ this.hash ].prevElementHeight = this.element.style.height;
+            ViewerStateMap[ this.hash ].prevElementParent = this.element.parentNode;
+            ViewerStateMap[ this.hash ].prevNextSibling = this.element.nextSibling;
+            ViewerStateMap[ this.hash ].prevElementWidth = this.element.style.width;
+            ViewerStateMap[ this.hash ].prevElementHeight = this.element.style.height;
             nodes = body.childNodes.length;
             for ( i = 0; i < nodes; i++ ) {
                 this.previousBody.push( body.childNodes[ 0 ] );
@@ -837,7 +628,7 @@ $.extend( $.Viewer.prototype, $.EventSource.prototype, $.ControlDock.prototype, 
                 ) + 'px';
             }
 
-            THIS[ this.hash ].fullPage = true;
+            ViewerStateMap[ this.hash ].fullPage = true;
 
             // mouse will be inside container now
             $.delegate( this, onContainerEnter )( {} );
@@ -863,9 +654,9 @@ $.extend( $.Viewer.prototype, $.EventSource.prototype, $.ControlDock.prototype, 
             }
 
             $.removeClass( this.element, 'fullpage' );
-            THIS[ this.hash ].prevElementParent.insertBefore(
+            ViewerStateMap[ this.hash ].prevElementParent.insertBefore(
                 this.element,
-                THIS[ this.hash ].prevNextSibling
+                ViewerStateMap[ this.hash ].prevNextSibling
             );
 
             //If we've got a toolbar, we need to enable the user to use css to
@@ -885,8 +676,8 @@ $.extend( $.Viewer.prototype, $.EventSource.prototype, $.ControlDock.prototype, 
                 delete this.toolbar.nextSibling;
             }
 
-            this.element.style.width = THIS[ this.hash ].prevElementWidth;
-            this.element.style.height = THIS[ this.hash ].prevElementHeight;
+            this.element.style.width = ViewerStateMap[ this.hash ].prevElementWidth;
+            this.element.style.height = ViewerStateMap[ this.hash ].prevElementHeight;
 
             // After exiting fullPage or fullScreen, it can take some time
             // before the browser can actually set the scroll.
@@ -903,7 +694,7 @@ $.extend( $.Viewer.prototype, $.EventSource.prototype, $.ControlDock.prototype, 
             };
             $.requestAnimationFrame( restoreScroll );
 
-            THIS[ this.hash ].fullPage = false;
+            ViewerStateMap[ this.hash ].fullPage = false;
 
             // mouse will likely be outside now
             $.delegate( this, onContainerExit )( { } );
@@ -1052,220 +843,13 @@ $.extend( $.Viewer.prototype, $.EventSource.prototype, $.ControlDock.prototype, 
         return this;
     },
 
-
-    /**
-     * @function
-     * @return {OpenSeadragon.Viewer} Chainable.
-     */
-    bindSequenceControls: function(){
-
-        //////////////////////////////////////////////////////////////////////////
-        // Image Sequence Controls
-        //////////////////////////////////////////////////////////////////////////
-        var onFocusHandler          = $.delegate( this, onFocus ),
-            onBlurHandler           = $.delegate( this, onBlur ),
-            onNextHandler           = $.delegate( this, onNext ),
-            onPreviousHandler       = $.delegate( this, onPrevious ),
-            navImages               = this.navImages,
-            useGroup                = true ;
-
-        if( this.showSequenceControl && THIS[ this.hash ].sequenced ){
-
-            if( this.previousButton || this.nextButton ){
-                //if we are binding to custom buttons then layout and
-                //grouping is the responsibility of the page author
-                useGroup = false;
-            }
-
-            this.previousButton = new $.Button({
-                element:    this.previousButton ? $.getElement( this.previousButton ) : null,
-                clickTimeThreshold: this.clickTimeThreshold,
-                clickDistThreshold: this.clickDistThreshold,
-                tooltip:    $.getString( "Tooltips.PreviousPage" ),
-                srcRest:    resolveUrl( this.prefixUrl, navImages.previous.REST ),
-                srcGroup:   resolveUrl( this.prefixUrl, navImages.previous.GROUP ),
-                srcHover:   resolveUrl( this.prefixUrl, navImages.previous.HOVER ),
-                srcDown:    resolveUrl( this.prefixUrl, navImages.previous.DOWN ),
-                onRelease:  onPreviousHandler,
-                onFocus:    onFocusHandler,
-                onBlur:     onBlurHandler
-            });
-
-            this.nextButton = new $.Button({
-                element:    this.nextButton ? $.getElement( this.nextButton ) : null,
-                clickTimeThreshold: this.clickTimeThreshold,
-                clickDistThreshold: this.clickDistThreshold,
-                tooltip:    $.getString( "Tooltips.NextPage" ),
-                srcRest:    resolveUrl( this.prefixUrl, navImages.next.REST ),
-                srcGroup:   resolveUrl( this.prefixUrl, navImages.next.GROUP ),
-                srcHover:   resolveUrl( this.prefixUrl, navImages.next.HOVER ),
-                srcDown:    resolveUrl( this.prefixUrl, navImages.next.DOWN ),
-                onRelease:  onNextHandler,
-                onFocus:    onFocusHandler,
-                onBlur:     onBlurHandler
-            });
-
-            if( !this.navPrevNextWrap ){
-                this.previousButton.disable();
-            }
-
-            if( useGroup ){
-                this.paging = new $.ButtonGroup({
-                    buttons: [
-                        this.previousButton,
-                        this.nextButton
-                    ],
-                    clickTimeThreshold: this.clickTimeThreshold,
-                    clickDistThreshold: this.clickDistThreshold
-                });
-
-                this.pagingControl = this.paging.element;
-
-                if( this.toolbar ){
-                    this.toolbar.addControl(
-                        this.pagingControl,
-                        {anchor: $.ControlAnchor.BOTTOM_RIGHT}
-                    );
-                }else{
-                    this.addControl(
-                        this.pagingControl,
-                        {anchor: this.sequenceControlAnchor || $.ControlAnchor.TOP_LEFT}
-                    );
-                }
-            }
-        }
-        return this;
-    },
-
-
-    /**
-     * @function
-     * @return {OpenSeadragon.Viewer} Chainable.
-     */
-    bindStandardControls: function(){
-        //////////////////////////////////////////////////////////////////////////
-        // Navigation Controls
-        //////////////////////////////////////////////////////////////////////////
-        var beginZoomingInHandler   = $.delegate( this, beginZoomingIn ),
-            endZoomingHandler       = $.delegate( this, endZooming ),
-            doSingleZoomInHandler   = $.delegate( this, doSingleZoomIn ),
-            beginZoomingOutHandler  = $.delegate( this, beginZoomingOut ),
-            doSingleZoomOutHandler  = $.delegate( this, doSingleZoomOut ),
-            onHomeHandler           = $.delegate( this, onHome ),
-            onFullScreenHandler     = $.delegate( this, onFullScreen ),
-            onFocusHandler          = $.delegate( this, onFocus ),
-            onBlurHandler           = $.delegate( this, onBlur ),
-            navImages               = this.navImages,
-            buttons                 = [],
-            useGroup                = true ;
-
-
-        if( this.showNavigationControl ){
-
-            if( this.zoomInButton || this.zoomOutButton || this.homeButton || this.fullPageButton ){
-                //if we are binding to custom buttons then layout and
-                //grouping is the responsibility of the page author
-                useGroup = false;
-            }
-
-            buttons.push( this.zoomInButton = new $.Button({
-                element:    this.zoomInButton ? $.getElement( this.zoomInButton ) : null,
-                clickTimeThreshold: this.clickTimeThreshold,
-                clickDistThreshold: this.clickDistThreshold,
-                tooltip:    $.getString( "Tooltips.ZoomIn" ),
-                srcRest:    resolveUrl( this.prefixUrl, navImages.zoomIn.REST ),
-                srcGroup:   resolveUrl( this.prefixUrl, navImages.zoomIn.GROUP ),
-                srcHover:   resolveUrl( this.prefixUrl, navImages.zoomIn.HOVER ),
-                srcDown:    resolveUrl( this.prefixUrl, navImages.zoomIn.DOWN ),
-                onPress:    beginZoomingInHandler,
-                onRelease:  endZoomingHandler,
-                onClick:    doSingleZoomInHandler,
-                onEnter:    beginZoomingInHandler,
-                onExit:     endZoomingHandler,
-                onFocus:    onFocusHandler,
-                onBlur:     onBlurHandler
-            }));
-
-            buttons.push( this.zoomOutButton = new $.Button({
-                element:    this.zoomOutButton ? $.getElement( this.zoomOutButton ) : null,
-                clickTimeThreshold: this.clickTimeThreshold,
-                clickDistThreshold: this.clickDistThreshold,
-                tooltip:    $.getString( "Tooltips.ZoomOut" ),
-                srcRest:    resolveUrl( this.prefixUrl, navImages.zoomOut.REST ),
-                srcGroup:   resolveUrl( this.prefixUrl, navImages.zoomOut.GROUP ),
-                srcHover:   resolveUrl( this.prefixUrl, navImages.zoomOut.HOVER ),
-                srcDown:    resolveUrl( this.prefixUrl, navImages.zoomOut.DOWN ),
-                onPress:    beginZoomingOutHandler,
-                onRelease:  endZoomingHandler,
-                onClick:    doSingleZoomOutHandler,
-                onEnter:    beginZoomingOutHandler,
-                onExit:     endZoomingHandler,
-                onFocus:    onFocusHandler,
-                onBlur:     onBlurHandler
-            }));
-
-            buttons.push( this.homeButton = new $.Button({
-                element:    this.homeButton ? $.getElement( this.homeButton ) : null,
-                clickTimeThreshold: this.clickTimeThreshold,
-                clickDistThreshold: this.clickDistThreshold,
-                tooltip:    $.getString( "Tooltips.Home" ),
-                srcRest:    resolveUrl( this.prefixUrl, navImages.home.REST ),
-                srcGroup:   resolveUrl( this.prefixUrl, navImages.home.GROUP ),
-                srcHover:   resolveUrl( this.prefixUrl, navImages.home.HOVER ),
-                srcDown:    resolveUrl( this.prefixUrl, navImages.home.DOWN ),
-                onRelease:  onHomeHandler,
-                onFocus:    onFocusHandler,
-                onBlur:     onBlurHandler
-            }));
-
-            buttons.push( this.fullPageButton = new $.Button({
-                element:    this.fullPageButton ? $.getElement( this.fullPageButton ) : null,
-                clickTimeThreshold: this.clickTimeThreshold,
-                clickDistThreshold: this.clickDistThreshold,
-                tooltip:    $.getString( "Tooltips.FullPage" ),
-                srcRest:    resolveUrl( this.prefixUrl, navImages.fullpage.REST ),
-                srcGroup:   resolveUrl( this.prefixUrl, navImages.fullpage.GROUP ),
-                srcHover:   resolveUrl( this.prefixUrl, navImages.fullpage.HOVER ),
-                srcDown:    resolveUrl( this.prefixUrl, navImages.fullpage.DOWN ),
-                onRelease:  onFullScreenHandler,
-                onFocus:    onFocusHandler,
-                onBlur:     onBlurHandler
-            }));
-
-            if( useGroup ){
-                this.buttons = new $.ButtonGroup({
-                    buttons:            buttons,
-                    clickTimeThreshold: this.clickTimeThreshold,
-                    clickDistThreshold: this.clickDistThreshold
-                });
-
-                this.navControl  = this.buttons.element;
-                this.addHandler( 'open', $.delegate( this, lightUp ) );
-
-                if( this.toolbar ){
-                    this.toolbar.addControl(
-                        this.navControl,
-                        {anchor: $.ControlAnchor.TOP_LEFT}
-                    );
-                }else{
-                    this.addControl(
-                        this.navControl,
-                        {anchor: this.navigationControlAnchor || $.ControlAnchor.TOP_LEFT}
-                    );
-                }
-            }
-
-        }
-        return this;
-    },
-    
     /**
      * Gets the active page of a sequence
      * @function
      * @return {Number}
      */
     currentPage: function () {
-        return THIS[ this.hash ].sequence;
+        return ViewerStateMap[ this.hash ].sequenceIndex;
       },
 
     /**
@@ -1274,6 +858,8 @@ $.extend( $.Viewer.prototype, $.EventSource.prototype, $.ControlDock.prototype, 
      * @fires OpenSeadragon.Viewer.event:page
      */
     goToPage: function( page ){
+
+        $.console.log('Viewer::goToPage %s',page);
         if( page >= 0 && page < this.tileSources.length ){
             /**
              * Raised when the page is changed on a viewer configured with multiple image sources (see {@link OpenSeadragon.Viewer#goToPage}).
@@ -1287,7 +873,7 @@ $.extend( $.Viewer.prototype, $.EventSource.prototype, $.ControlDock.prototype, 
              */
             this.raiseEvent( 'page', { page: page } );
 
-            THIS[ this.hash ].sequence = page;
+            ViewerStateMap[ this.hash ].sequenceIndex = page;
 
             this._updateSequenceButtons( page );
 
@@ -1361,6 +947,60 @@ $.extend( $.Viewer.prototype, $.EventSource.prototype, $.ControlDock.prototype, 
             div.parentNode.removeChild(div);
             delete this.messageDiv;
         }
+    },
+    getCenterForOverlay:function( overlay ) {
+        // TODO :
+        return new $.Point(
+            this.drawers[0].canvas.width >> 1,
+            this.drawers[0].canvas.height >> 1
+        );
+    },
+    canRotate:function() {
+        return this.drawers[0].canRotate();
+    },
+    update:function() {
+
+        // This is called by the viewport when it has been rotated
+        // For now just update drawers immediately, but better to set a flag
+        // so that the drawers update on the next refresh cycle
+        for(var i=0;i<this.drawers.length;i++) {
+            this.drawers[i].update();
+        }
+    },
+    needsDrawUpdate:function() {
+        if(this.drawers[0]) {
+            return this.drawers[0].needsUpdate();
+        } else {
+            return false;
+        }
+        // TODO : optimise
+//        for(var i=0;i<this.drawers.length;i++) {
+//            if(this.drawers[i].needsUpdate()) {
+//                return true;
+//            }
+//        }
+//        return false;
+    },
+    addOverlay:function(sourceIndex, element, location, overlayPlacement) {
+        $.console.log('Add Overlay to source %s. Element %O. Location %O. Placement %s',sourceIndex, element, location, overlayPlacement);
+    },
+    beginControlsAutoHide:function() {
+        if ( !this.autoHideControls ) {
+            return;
+        }
+        this.controlsShouldFade = true;
+        this.controlsFadeBeginTime = $.now() + this.controlsFadeDelay;
+
+        window.setTimeout( function() {
+            scheduleControlsFade( this );
+        }, this.controlsFadeDelay );
+    },
+    abortControlsAutoHide:function() {
+        var i;
+        this.controlsShouldFade = false;
+        for ( i = this.controls.length - 1; i >= 0; i-- ) {
+            this.controls[ i ].setOpacity( 1.0 );
+        }
     }
 });
 
@@ -1381,11 +1021,50 @@ function _getSafeElemSize (oElement) {
     );
 }
 
-/**
+function tileSourceCreateSuccess(tileSource) {
+    $.console.log('Tile Source Created %O',tileSource);
+
+    // 1. Check if its a list of sources and if so, is that list to be treated as a sequence or a collection
+    if( $.isArray( tileSource ) && !this.collectionMode ){
+
+        ViewerStateMap[ this.hash ].sequenced = true;
+
+        //Keeps the initial page within bounds
+        if ( this.initialPage > tileSource.length - 1 ){
+            this.initialPage = tileSource.length - 1;
+        }
+
+        //Update the sequence (aka current page) property
+        ViewerStateMap[ this.hash ].sequenceIndex = this.initialPage;
+    }
+
+    openTileSource(this, tileSource);
+}
+
+function tileSourceCreateError(tileSource) {
+    $.console.log('Tile Source Creation Failed %O', tileSource);
+    /**
+     * Raised when an error occurs loading a TileSource.
+     *
+     * @event open-failed
+     * @memberof OpenSeadragon.Viewer
+     * @type {object}
+     * @property {OpenSeadragon.Viewer} eventSource - A reference to the Viewer which raised the event.
+     * @property {String} message
+     * @property {String} source
+     * @property {?Object} userData - Arbitrary subscriber-defined object.
+     */
+    this.raiseEvent( 'open-failed', event );
+}
+
+    /**
  * @function
  * @private
  */
 function openTileSource( viewer, source ) {
+
+    $.console.log('Viewer::openTileSource. Viewer %O. Source %O.',viewer, source);
+
     var _this = viewer,
         overlay,
         i;
@@ -1395,52 +1074,48 @@ function openTileSource( viewer, source ) {
     }
 
     _this.canvas.innerHTML = "";
-    THIS[ _this.hash ].prevContainerSize = _getSafeElemSize( _this.container );
+    ViewerStateMap[ _this.hash ].prevContainerSize = _getSafeElemSize( _this.container );
 
+    // Specify common viewport options
+    var viewportOptions = {
+        containerSize:      ViewerStateMap[ _this.hash ].prevContainerSize,
+        springStiffness:    _this.springStiffness,
+        animationTime:      _this.animationTime,
+        minZoomImageRatio:  _this.minZoomImageRatio,
+        maxZoomPixelRatio:  _this.maxZoomPixelRatio,
+        visibilityRatio:    _this.visibilityRatio,
+        wrapHorizontal:     _this.wrapHorizontal,
+        wrapVertical:       _this.wrapVertical,
+        defaultZoomLevel:   _this.defaultZoomLevel,
+        minZoomLevel:       _this.minZoomLevel,
+        maxZoomLevel:       _this.maxZoomLevel,
+        viewer:             _this
+    };
 
-    if( _this.collectionMode ){
+    if( _this.collectionMode ) {
+
         _this.source = new $.TileSourceCollection({
             rows: _this.collectionRows,
             layout: _this.collectionLayout,
             tileSize: _this.collectionTileSize,
-            tileSources: _this.tileSources,
+            tileSources: source,
             tileMargin: _this.collectionTileMargin
         });
-        _this.viewport = _this.viewport ? _this.viewport : new $.Viewport({
+        // Add custom viewport options for collections
+        $.extend(viewportOptions, {
             collectionMode:         true,
             collectionTileSource:   _this.source,
-            containerSize:          THIS[ _this.hash ].prevContainerSize,
-            contentSize:            _this.source.dimensions,
-            springStiffness:        _this.springStiffness,
-            animationTime:          _this.animationTime,
-            showNavigator:          false,
-            minZoomImageRatio:      1,
-            maxZoomPixelRatio:      1,
-            viewer:                 _this //,
-            //TODO: figure out how to support these in a way that makes sense
-            //minZoomLevel:           this.minZoomLevel,
-            //maxZoomLevel:           this.maxZoomLevel
+            showNavigator:          false
         });
-    }else{
-        if( source ){
-            _this.source = source;
-        }
-        _this.viewport = _this.viewport ? _this.viewport : new $.Viewport({
-            containerSize:      THIS[ _this.hash ].prevContainerSize,
-            contentSize:        _this.source.dimensions,
-            springStiffness:    _this.springStiffness,
-            animationTime:      _this.animationTime,
-            minZoomImageRatio:  _this.minZoomImageRatio,
-            maxZoomPixelRatio:  _this.maxZoomPixelRatio,
-            visibilityRatio:    _this.visibilityRatio,
-            wrapHorizontal:     _this.wrapHorizontal,
-            wrapVertical:       _this.wrapVertical,
-            defaultZoomLevel:   _this.defaultZoomLevel,
-            minZoomLevel:       _this.minZoomLevel,
-            maxZoomLevel:       _this.maxZoomLevel,
-            viewer:             _this
-        });
+    } else if( source ){
+        _this.source = source;
     }
+
+    viewportOptions.contentSize = _this.source.dimensions;
+
+        $.console.log('Content Size %O',viewportOptions.contentSize);
+
+    _this.viewport = _this.viewport ? _this.viewport : new $.Viewport(viewportOptions);
 
     if( _this.preserveViewport ){
         _this.viewport.resetContentSize( _this.source.dimensions );
@@ -1448,26 +1123,9 @@ function openTileSource( viewer, source ) {
 
     _this.source.overlays = _this.source.overlays || [];
 
-    _this.drawer = new $.Drawer({
-        viewer:             _this,
-        source:             _this.source,
-        viewport:           _this.viewport,
-        element:            _this.canvas,
-        overlays:           [].concat( _this.overlays ).concat( _this.source.overlays ),
-        maxImageCacheCount: _this.maxImageCacheCount,
-        imageLoaderLimit:   _this.imageLoaderLimit,
-        minZoomImageRatio:  _this.minZoomImageRatio,
-        wrapHorizontal:     _this.wrapHorizontal,
-        wrapVertical:       _this.wrapVertical,
-        immediateRender:    _this.immediateRender,
-        blendTime:          _this.blendTime,
-        alwaysBlend:        _this.alwaysBlend,
-        minPixelRatio:      _this.collectionMode ? 0 : _this.minPixelRatio,
-        timeout:            _this.timeout,
-        debugMode:          _this.debugMode,
-        debugGridColor:     _this.debugGridColor
-    });
+    _this.drawers = createDrawers(_this, _this.source.tileSources);
 
+        $.console.log('Created Drawers %O',_this.drawers );
     //Instantiate a navigator if configured
     if ( _this.showNavigator  && !_this.collectionMode ){
         // Note: By passing the fully parsed source, the navigator doesn't
@@ -1511,44 +1169,43 @@ function openTileSource( viewer, source ) {
         });
     }
 
-    //this.profiler = new $.Profiler();
-
-    THIS[ _this.hash ].animating = false;
-    THIS[ _this.hash ].forceRedraw = true;
+    ViewerStateMap[ _this.hash ].animating = false;
+    ViewerStateMap[ _this.hash ].forceRedraw = true;
     _this._updateRequestId = scheduleUpdate( _this, updateMulti );
 
     //Assuming you had programatically created a bunch of overlays
     //and added them via configuration
-    for ( i = 0; i < _this.overlayControls.length; i++ ) {
-
-        overlay = _this.overlayControls[ i ];
-
-        if ( overlay.point ) {
-
-            _this.drawer.addOverlay(
-                overlay.id,
-                new $.Point(
-                    overlay.point.X,
-                    overlay.point.Y
-                ),
-                $.OverlayPlacement.TOP_LEFT
-            );
-
-        } else {
-
-            _this.drawer.addOverlay(
-                overlay.id,
-                new $.Rect(
-                    overlay.rect.Point.X,
-                    overlay.rect.Point.Y,
-                    overlay.rect.Width,
-                    overlay.rect.Height
-                ),
-                overlay.placement
-            );
-
-        }
-    }
+    // TODO : Replace viewer overlay creation with something more sensible later
+//    for ( i = 0; i < _this.overlayControls.length; i++ ) {
+//
+//        overlay = _this.overlayControls[ i ];
+//
+//        if ( overlay.point ) {
+//
+//            _this.drawer.addOverlay(
+//                overlay.id,
+//                new $.Point(
+//                    overlay.point.X,
+//                    overlay.point.Y
+//                ),
+//                $.OverlayPlacement.TOP_LEFT
+//            );
+//
+//        } else {
+//
+//            _this.drawer.addOverlay(
+//                overlay.id,
+//                new $.Rect(
+//                    overlay.rect.Point.X,
+//                    overlay.rect.Point.Y,
+//                    overlay.rect.Width,
+//                    overlay.rect.Height
+//                ),
+//                overlay.placement
+//            );
+//
+//        }
+//    }
     VIEWERS[ _this.hash ] = _this;
 
     /**
@@ -1566,7 +1223,60 @@ function openTileSource( viewer, source ) {
     return _this;
 }
 
+function createDrawers(viewer, tileSources) {
 
+    if(!$.isArray(tileSources)) {
+        $.console.log('Wrapping tileSources into array %O', tileSources);
+        tileSources = [tileSources];
+    }
+    $.console.log('Create Drawers for Viewer %O with sources %O',viewer, tileSources);
+
+    var drawers = [];
+    var drawer = null;
+
+    var useCanvas = $.supportsCanvas && viewer.useCanvas;
+    // TODO : Change this to 'renderContext' or something that makes more sense
+    var canvas = $.makeNeutralElement( useCanvas ? "canvas" : "div" );
+    canvas.style.width     = "100%";
+    canvas.style.height    = "100%";
+    canvas.style.position  = "absolute";
+    $.getElement(viewer.canvas).appendChild( canvas );
+
+    var ox = 0;
+    var oy = 0;
+    for(var i=0;i<tileSources.length;i++) {
+        var source = tileSources[i];
+        drawer = new $.Drawer({
+            viewer:             viewer,
+            source:             source,
+            viewport:           viewer.viewport,
+            element:            viewer.canvas,
+            canvas:             canvas,
+            overlays:           source.overlays,
+            maxImageCacheCount: viewer.maxImageCacheCount,
+            imageLoaderLimit:   viewer.imageLoaderLimit,
+            minZoomImageRatio:  viewer.minZoomImageRatio,
+            wrapHorizontal:     viewer.wrapHorizontal,
+            wrapVertical:       viewer.wrapVertical,
+            immediateRender:    viewer.immediateRender,
+            blendTime:          viewer.blendTime,
+            alwaysBlend:        viewer.alwaysBlend,
+            minPixelRatio:      viewer.collectionMode ? 0 : viewer.minPixelRatio,
+            timeout:            viewer.timeout,
+            debugMode:          viewer.debugMode,
+            debugGridColor:     viewer.debugGridColor
+        });
+
+        drawer.setRenderOffset(ox, oy);
+        drawers.push(drawer);
+
+//        ox += 128;
+//        ox += source.dimensions.x;
+//        $.console.log('X Offset %s',ox);
+    }
+
+    return drawers;
+}
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1585,23 +1295,6 @@ function scheduleControlsFade( viewer ) {
         updateControlsFade( viewer );
     });
 }
-
-
-//initiates an animation to hide the controls
-function beginControlsAutoHide( viewer ) {
-    if ( !viewer.autoHideControls ) {
-        return;
-    }
-    viewer.controlsShouldFade = true;
-    viewer.controlsFadeBeginTime =
-        $.now() +
-        viewer.controlsFadeDelay;
-
-    window.setTimeout( function(){
-        scheduleControlsFade( viewer );
-    }, viewer.controlsFadeDelay );
-}
-
 
 //determines if fade animation is done or continues the animation
 function updateControlsFade( viewer ) {
@@ -1645,14 +1338,6 @@ function abortControlsAutoHide( viewer ) {
 ///////////////////////////////////////////////////////////////////////////////
 // Default view event handlers.
 ///////////////////////////////////////////////////////////////////////////////
-function onFocus(){
-    abortControlsAutoHide( this );
-}
-
-function onBlur(){
-    beginControlsAutoHide( this );
-
-}
 
 function onCanvasClick( event ) {
     var zoomPerClick,
@@ -1793,9 +1478,9 @@ function onCanvasScroll( event ) {
 
 function onContainerExit( event ) {
     if ( !event.insideElementPressed ) {
-        THIS[ this.hash ].mouseInside = false;
-        if ( !THIS[ this.hash ].animating ) {
-            beginControlsAutoHide( this );
+        ViewerStateMap[ this.hash ].mouseInside = false;
+        if ( !ViewerStateMap[ this.hash ].animating ) {
+            this.beginControlsAutoHide();
         }
     }
     /**
@@ -1823,9 +1508,9 @@ function onContainerExit( event ) {
 
 function onContainerRelease( event ) {
     if ( !event.insideElementReleased ) {
-        THIS[ this.hash ].mouseInside = false;
-        if ( !THIS[ this.hash ].animating ) {
-            beginControlsAutoHide( this );
+        ViewerStateMap[ this.hash ].mouseInside = false;
+        if ( !ViewerStateMap[ this.hash ].animating ) {
+            this.beginControlsAutoHide();
         }
     }
     /**
@@ -1852,7 +1537,7 @@ function onContainerRelease( event ) {
 }
 
 function onContainerEnter( event ) {
-    THIS[ this.hash ].mouseInside = true;
+    ViewerStateMap[ this.hash ].mouseInside = true;
     abortControlsAutoHide( this );
     /**
      * Raised when the cursor enters the {@link OpenSeadragon.Viewer#container} element.
@@ -1896,6 +1581,13 @@ function updateMulti( viewer ) {
     }
 }
 
+function updateDrawers( viewer ) {
+    //$.console.log('Update Drawers %s',viewer.drawers.length);
+    for(var i=0;i<viewer.drawers.length;i++) {
+        viewer.drawers[i].update();
+    }
+}
+
 function updateOnce( viewer ) {
 
     var containerSize,
@@ -1905,17 +1597,15 @@ function updateOnce( viewer ) {
         return;
     }
 
-    //viewer.profiler.beginUpdate();
-
     if ( viewer.autoResize ) {
         containerSize = _getSafeElemSize( viewer.container );
-        if ( !containerSize.equals( THIS[ viewer.hash ].prevContainerSize ) ) {
+        if ( !containerSize.equals( ViewerStateMap[ viewer.hash ].prevContainerSize ) ) {
             // maintain image position
             var oldBounds = viewer.viewport.getBounds();
             var oldCenter = viewer.viewport.getCenter();
             resizeViewportAndRecenter(viewer, containerSize, oldBounds, oldCenter);
-            THIS[ viewer.hash ].prevContainerSize = containerSize;
-            THIS[ viewer.hash ].forceRedraw = true;
+            ViewerStateMap[ viewer.hash ].prevContainerSize = containerSize;
+            ViewerStateMap[ viewer.hash ].forceRedraw = true;
         }
     }
 
@@ -1925,7 +1615,7 @@ function updateOnce( viewer ) {
         animated = viewer.referenceStrip.update( viewer.viewport ) || animated;
     }
 
-    if ( !THIS[ viewer.hash ].animating && animated ) {
+    if ( !ViewerStateMap[ viewer.hash ].animating && animated ) {
         /**
          * Raised when any spring animation starts (zoom, pan, etc.).
          *
@@ -1940,7 +1630,7 @@ function updateOnce( viewer ) {
     }
 
     if ( animated ) {
-        viewer.drawer.update();
+        updateDrawers(viewer);
         if( viewer.navigator ){
             viewer.navigator.update( viewer.viewport );
         }
@@ -1954,15 +1644,15 @@ function updateOnce( viewer ) {
          * @property {?Object} userData - Arbitrary subscriber-defined object.
          */
         viewer.raiseEvent( "animation" );
-    } else if ( THIS[ viewer.hash ].forceRedraw || viewer.drawer.needsUpdate() ) {
-        viewer.drawer.update();
+    } else if ( ViewerStateMap[ viewer.hash ].forceRedraw || viewer.needsDrawUpdate() ) {
+        updateDrawers(viewer);
         if( viewer.navigator ){
             viewer.navigator.update( viewer.viewport );
         }
-        THIS[ viewer.hash ].forceRedraw = false;
+        ViewerStateMap[ viewer.hash ].forceRedraw = false;
     }
 
-    if ( THIS[ viewer.hash ].animating && !animated ) {
+    if ( ViewerStateMap[ viewer.hash ].animating && !animated ) {
         /**
          * Raised when any spring animation ends (zoom, pan, etc.).
          *
@@ -1974,14 +1664,12 @@ function updateOnce( viewer ) {
          */
         viewer.raiseEvent( "animation-finish" );
 
-        if ( !THIS[ viewer.hash ].mouseInside ) {
-            beginControlsAutoHide( viewer );
+        if ( !ViewerStateMap[ viewer.hash ].mouseInside ) {
+            viewer.beginControlsAutoHide();
         }
     }
 
-    THIS[ viewer.hash ].animating = animated;
-
-    //viewer.profiler.endUpdate();
+    ViewerStateMap[ viewer.hash ].animating = animated;
 }
 
 // This function resizes the viewport and recenters the image
@@ -2018,129 +1706,5 @@ function resizeViewportAndRecenter( viewer, containerSize, oldBounds, oldCenter 
       viewport.resizeToFit( containerSize, true, newBounds );
     }
 }
-
-///////////////////////////////////////////////////////////////////////////////
-// Navigation Controls
-///////////////////////////////////////////////////////////////////////////////
-function resolveUrl( prefix, url ) {
-    return prefix ? prefix + url : url;
-}
-
-
-
-function beginZoomingIn() {
-    THIS[ this.hash ].lastZoomTime = $.now();
-    THIS[ this.hash ].zoomFactor = this.zoomPerSecond;
-    THIS[ this.hash ].zooming = true;
-    scheduleZoom( this );
-}
-
-
-function beginZoomingOut() {
-    THIS[ this.hash ].lastZoomTime = $.now();
-    THIS[ this.hash ].zoomFactor = 1.0 / this.zoomPerSecond;
-    THIS[ this.hash ].zooming = true;
-    scheduleZoom( this );
-}
-
-
-function endZooming() {
-    THIS[ this.hash ].zooming = false;
-}
-
-
-function scheduleZoom( viewer ) {
-    $.requestAnimationFrame( $.delegate( viewer, doZoom ) );
-}
-
-
-function doZoom() {
-    var currentTime,
-        deltaTime,
-        adjustedFactor;
-
-    if ( THIS[ this.hash ].zooming && this.viewport) {
-        currentTime     = $.now();
-        deltaTime       = currentTime - THIS[ this.hash ].lastZoomTime;
-        adjustedFactor  = Math.pow( THIS[ this.hash ].zoomFactor, deltaTime / 1000 );
-
-        this.viewport.zoomBy( adjustedFactor );
-        this.viewport.applyConstraints();
-        THIS[ this.hash ].lastZoomTime = currentTime;
-        scheduleZoom( this );
-    }
-}
-
-
-function doSingleZoomIn() {
-    if ( this.viewport ) {
-        THIS[ this.hash ].zooming = false;
-        this.viewport.zoomBy(
-            this.zoomPerClick / 1.0
-        );
-        this.viewport.applyConstraints();
-    }
-}
-
-
-function doSingleZoomOut() {
-    if ( this.viewport ) {
-        THIS[ this.hash ].zooming = false;
-        this.viewport.zoomBy(
-            1.0 / this.zoomPerClick
-        );
-        this.viewport.applyConstraints();
-    }
-}
-
-
-function lightUp() {
-    this.buttons.emulateEnter();
-    this.buttons.emulateExit();
-}
-
-
-function onHome() {
-    if ( this.viewport ) {
-        this.viewport.goHome();
-    }
-}
-
-
-function onFullScreen() {
-    if ( this.isFullPage() && !$.isFullScreen() ) {
-        // Is fullPage but not fullScreen
-        this.setFullPage( false );
-    } else {
-        this.setFullScreen( !this.isFullPage() );
-    }
-    // correct for no mouseout event on change
-    if ( this.buttons ) {
-        this.buttons.emulateExit();
-    }
-    this.fullPageButton.element.focus();
-    if ( this.viewport ) {
-        this.viewport.applyConstraints();
-    }
-}
-
-
-function onPrevious(){
-    var previous = THIS[ this.hash ].sequence - 1;
-    if(this.navPrevNextWrap && previous < 0){
-        previous += this.tileSources.length;
-    }
-    this.goToPage( previous );
-}
-
-
-function onNext(){
-    var next = THIS[ this.hash ].sequence + 1;
-    if(this.navPrevNextWrap && next >= this.tileSources.length){
-        next = 0;
-    }
-    this.goToPage( next );
-}
-
 
 }( OpenSeadragon ));

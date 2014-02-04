@@ -205,10 +205,7 @@
             var element = this.element,
                 style   = this.style,
                 scales  = this.scales,
-                drawerCenter = new $.Point(
-                    viewport.viewer.drawer.canvas.width / 2,
-                    viewport.viewer.drawer.canvas.height / 2
-                ),
+                drawerCenter = viewport.viewer.getCenterForOverlay(this),
                 degrees = viewport.degrees,
                 position,
                 size,

@@ -238,7 +238,8 @@ $.extend( $.Navigator.prototype, $.EventSource.prototype, $.Viewer.prototype, /*
                     );
                 this.viewport.fitBounds( newBounds, true );
                 this.oldContainerSize = containerSize;
-                this.drawer.update();
+                // TODO : Replace directly calling drawer updates with a separate system, events or something
+                //this.drawer.update();
             }
         }
     },

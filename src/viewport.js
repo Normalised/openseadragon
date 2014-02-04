@@ -643,7 +643,7 @@ $.Viewport.prototype = /** @lends OpenSeadragon.Viewport.prototype */{
      * @return {OpenSeadragon.Viewport} Chainable.
      */
     setRotation: function( degrees ) {
-        if( !( this.viewer && this.viewer.drawer.canRotate() ) ) {
+        if( !( this.viewer && this.viewer.canRotate() ) ) {
             return this;
         }
 
@@ -652,7 +652,7 @@ $.Viewport.prototype = /** @lends OpenSeadragon.Viewport.prototype */{
             throw new Error('Currently only 0, 90, 180, and 270 degrees are supported.');
         }
         this.degrees = degrees;
-        this.viewer.drawer.update();
+        this.viewer.update();
         
         return this;
     },
@@ -809,6 +809,7 @@ $.Viewport.prototype = /** @lends OpenSeadragon.Viewport.prototype */{
      */
     pixelFromPoint: function( point, current ) {
         var bounds = this.getBounds( current );
+        //$.console.log('Pixel from Point %O. Bounds %O ',point, bounds);
         return point.minus(
             bounds.getTopLeft()
         ).times(

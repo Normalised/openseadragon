@@ -128,7 +128,14 @@ $.Drawer = function( options ) {
      * @member {Element} canvas
      * @memberof OpenSeadragon.Drawer#
      */
-    this.canvas     = $.makeNeutralElement( this.useCanvas ? "canvas" : "div" );
+
+    var useOwnCanvas = this.canvas == undefined;
+    if(useOwnCanvas) {
+        $.console.log('Creating canvas %O', this.canvas);
+        this.canvas     = $.makeNeutralElement( this.useCanvas ? "canvas" : "div" );
+    } else {
+        $.console.log('Using supplied canvas %O', this.canvas);
+    }
     /**
      * 2d drawing context for {@link OpenSeadragon.Drawer#canvas} if it's a &lt;canvas&gt; element, otherwise null.
      * @member {Object} context
@@ -137,39 +144,32 @@ $.Drawer = function( options ) {
     this.context    = this.useCanvas ? this.canvas.getContext( "2d" ) : null;
     // Ratio of zoomable image height to width.
     this.normHeight = this.source.dimensions.y / this.source.dimensions.x;
-    /**
-     * @member {Element} element
-     * @memberof OpenSeadragon.Drawer#
-     * @deprecated Alias for {@link OpenSeadragon.Drawer#container}.
-     */
-    this.element    = this.container;
 
     // We force our container to ltr because our drawing math doesn't work in rtl.
     // This issue only affects our canvas renderer, but we do it always for consistency.
     // Note that this means overlays you want to be rtl need to be explicitly set to rtl.
     this.container.dir = 'ltr';
-
-    this.canvas.style.width     = "100%";
-    this.canvas.style.height    = "100%";
-    this.canvas.style.position  = "absolute";
-
     // explicit left-align
     this.container.style.textAlign = "left";
-    this.container.appendChild( this.canvas );
+
+    if(useOwnCanvas) {
+        this.canvas.style.width     = "100%";
+        this.canvas.style.height    = "100%";
+        this.canvas.style.position  = "absolute";
+        this.container.appendChild( this.canvas );
+    }
 
     //create the correct type of overlay by convention if the overlays
     //are not already OpenSeadragon.Overlays
     for( i = 0; i < this.overlays.length; i++ ){
         if( $.isPlainObject( this.overlays[ i ] ) ){
 
-            this.overlays[ i ] = addOverlayFromConfiguration( this, this.overlays[ i ]);
+            this.overlays[ i ] = $.OverlayFactory.create( this.viewport, this.overlays[ i ]);
 
         } else if ( $.isFunction( this.overlays[ i ] ) ){
             //TODO
         }
     }
-
-    //this.profiler    = new $.Profiler();
 };
 
 $.Drawer.prototype = /** @lends OpenSeadragon.Drawer.prototype */{
@@ -475,63 +475,13 @@ $.Drawer.prototype = /** @lends OpenSeadragon.Drawer.prototype */{
      */
     canRotate: function() {
         return this.useCanvas;
+    },
+    setRenderOffset:function(ox, oy) {
+        // dont draw at 0,0
+        this.renderer.offsetX = ox;
+        this.renderer.offsetY = oy;
     }
 };
-
-/**
- * @private
- * @inner
- */
- function addOverlayFromConfiguration( drawer, overlay ){
-
-    var element  = null,
-        rect = ( overlay.height && overlay.width ) ? new $.Rect(
-            overlay.x || overlay.px,
-            overlay.y || overlay.py,
-            overlay.width,
-            overlay.height
-        ) : new $.Point(
-            overlay.x || overlay.px,
-            overlay.y || overlay.py
-        ),
-        id = overlay.id ?
-            overlay.id :
-            "openseadragon-overlay-"+Math.floor(Math.random()*10000000);
-
-    element = $.getElement(overlay.id);
-    if( !element ){
-        element         = document.createElement("a");
-        element.href    = "#/overlay/"+id;
-    }
-    element.id        = id;
-    $.addClass( element, overlay.className ?
-        overlay.className :
-        "openseadragon-overlay"
-    );
-
-
-    if(overlay.px !== undefined){
-        //if they specified 'px' so it's in pixel coordinates so
-        //we need to translate to viewport coordinates
-        rect = drawer.viewport.imageToViewportRectangle( rect );
-    }
-    
-    if( overlay.placement ){
-        return new $.Overlay({
-            element: element,
-            location: drawer.viewport.pointFromPixel(rect),
-            placement: $.OverlayPlacement[overlay.placement.toUpperCase()],
-            onDraw: overlay.onDraw
-        });
-    }else{
-        return new $.Overlay({
-            element: element,
-            location: rect,
-            onDraw: overlay.onDraw
-        });
-    }
-
-}
 
 /**
  * @private
@@ -916,17 +866,11 @@ function getTile( x, y, level, tileSource, tilesMatrix, time, numTiles, normHeig
 
 
 function loadTile( drawer, tile, time ) {
-    if( drawer.viewport.collectionMode ){
-        drawer.midUpdate = false;
-        onTileLoad( drawer, tile, time );
-    } else {
-        tile.loading = drawer.loadImage(
-            tile.url,
-            function( image ){
-                onTileLoad( drawer, tile, time, image );
-            }
-        );
-    }
+    tile.loading = drawer.loadImage( tile.url,
+        function( image ){
+            onTileLoad( drawer, tile, time, image );
+        }
+    );
 }
 
 function onTileLoad( drawer, tile, time, image ) {
@@ -946,7 +890,7 @@ function onTileLoad( drawer, tile, time, image ) {
     if ( drawer.midUpdate ) {
         $.console.warn( "Tile load callback in middle of drawing routine." );
         return;
-    } else if ( !image  && !drawer.viewport.collectionMode ) {
+    } else if ( !image ) {
         $.console.log( "Tile %s failed to load: %s", tile, tile.url );
         if( !drawer.debugMode ){
             tile.exists = false;
