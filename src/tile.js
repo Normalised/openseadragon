@@ -33,7 +33,6 @@
  */
 
 (function( $ ){
-    var TILE_CACHE       = {};
 /**
  * @class Tile
  * @memberof OpenSeadragon
@@ -47,6 +46,7 @@
  * @param {String} url The URL of this tile's image.
  */
 $.Tile = function(level, x, y, bounds, exists, url) {
+    //$.console.info('New Tile. Level: %s. Pos: %s,%s. Bounds: %O. Exists: %s. URL: %s',level,x, y,bounds,exists,url);
     /**
      * The zoom level this tile belongs to.
      * @member {Number} level
@@ -170,6 +170,17 @@ $.Tile = function(level, x, y, bounds, exists, url) {
      * @memberof OpenSeadragon.Tile#
      */
     this.lastTouchTime  = 0;
+
+    /**
+     * Is this a png image.
+     * Used for alpha testing during rendering
+     * @member {Boolean}
+     */
+    if(this.url) {
+        this.isPNG = this.url.match('.png');
+    } else {
+        this.isPNG = false;
+    }
 };
 
 $.Tile.prototype = /** @lends OpenSeadragon.Tile.prototype */{
@@ -185,135 +196,13 @@ $.Tile.prototype = /** @lends OpenSeadragon.Tile.prototype */{
     },
 
     /**
-     * Renders the tile in an html container.
-     * @function
-     * @param {Element} container
-     */
-    drawHTML: function( container ) {
-        if ( !this.loaded || !this.image ) {
-            $.console.warn(
-                "Attempting to draw tile %s when it's not yet loaded.",
-                this.toString()
-            );
-            return;
-        }
-
-        //EXPERIMENTAL - trying to figure out how to scale the container
-        //               content during animation of the container size.
-
-        if ( !this.element ) {
-            this.element                              = $.makeNeutralElement( "div" );
-            this.imgElement                           = $.makeNeutralElement( "img" );
-            this.imgElement.src                       = this.url;
-            this.imgElement.style.msInterpolationMode = "nearest-neighbor";
-            this.imgElement.style.width               = "100%";
-            this.imgElement.style.height              = "100%";
-
-            this.style                     = this.element.style;
-            this.style.position            = "absolute";
-        }
-        if ( this.element.parentNode != container ) {
-            container.appendChild( this.element );
-        }
-        if ( this.imgElement.parentNode != this.element ) {
-            this.element.appendChild( this.imgElement );
-        }
-
-        this.style.top     = this.position.y + "px";
-        this.style.left    = this.position.x + "px";
-        this.style.height  = this.size.y + "px";
-        this.style.width   = this.size.x + "px";
-
-        $.setElementOpacity( this.element, this.opacity );
-    },
-
-    /**
-     * Renders the tile in a canvas-based context.
-     * @function
-     * @param {Canvas} context
-     */
-    drawCanvas: function( context ) {
-
-        var position = this.position,
-            size     = this.size,
-            rendered,
-            canvas;
-
-        if ( !this.loaded || !( this.image || TILE_CACHE[ this.url ] ) ){
-            $.console.warn(
-                "Attempting to draw tile %s when it's not yet loaded.",
-                this.toString()
-            );
-            return;
-        }
-        context.globalAlpha = this.opacity;
-
-        //context.save();
-
-        //if we are supposed to be rendering fully opaque rectangle,
-        //ie its done fading or fading is turned off, and if we are drawing
-        //an image with an alpha channel, then the only way
-        //to avoid seeing the tile underneath is to clear the rectangle
-        if( context.globalAlpha == 1 && this.url.match('.png') ){
-            //clearing only the inside of the rectangle occupied
-            //by the png prevents edge flikering
-            context.clearRect(
-                position.x+1,
-                position.y+1,
-                size.x-2,
-                size.y-2
-            );
-
-        }
-
-        if( !TILE_CACHE[ this.url ] ){
-            canvas = document.createElement( 'canvas' );
-            canvas.width = this.image.width;
-            canvas.height = this.image.height;
-            rendered = canvas.getContext('2d');
-            rendered.drawImage( this.image, 0, 0 );
-            TILE_CACHE[ this.url ] = rendered;
-            //since we are caching the prerendered image on a canvas
-            //allow the image to not be held in memory
-            this.image = null;
-        }
-
-        rendered = TILE_CACHE[ this.url ];
-
-        //rendered.save();
-        context.drawImage(
-            rendered.canvas,
-            0,
-            0,
-            rendered.canvas.width,
-            rendered.canvas.height,
-            position.x,
-            position.y,
-            size.x,
-            size.y
-        );
-        //rendered.restore();
-
-        //context.restore();
-    },
-
-    /**
      * Removes tile from its container.
      * @function
      */
     unload: function() {
-        if ( this.imgElement && this.imgElement.parentNode ) {
-            this.imgElement.parentNode.removeChild( this.imgElement );
-        }
-        if ( this.element && this.element.parentNode ) {
-            this.element.parentNode.removeChild( this.element );
-        }
-        if ( TILE_CACHE[ this.url ]){
-            delete TILE_CACHE[ this.url ];
-        }
 
-        this.element    = null;
-        this.imgElement = null;
+        $.console.log('Unload Tile. %O',this);
+
         this.image      = null;
         this.loaded     = false;
         this.loading    = false;

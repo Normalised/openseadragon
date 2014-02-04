@@ -72,6 +72,8 @@ $.Drawer = function( options ) {
         };
     }
 
+    $.console.log('Drawer Options %O',options);
+
     $.extend( true, this, {
 
         //internal state properties
@@ -83,7 +85,7 @@ $.Drawer = function( options ) {
         lastDrawn:      [],    // An unordered list of Tiles drawn last frame.
         lastResetTime:  0,     // Last time for which the drawer was reset.
         midUpdate:      false, // Is the drawer currently updating the viewport?
-        updateAgain:    true,  // Does the drawer need to update the viewort again?
+        updateAgain:    true,  // Does the drawer need to update the viewport again?
 
 
         //internal state / configurable settings
@@ -105,7 +107,14 @@ $.Drawer = function( options ) {
 
     }, options );
 
+    $.console.log('Drawer %O',this);
+
     this.useCanvas  = $.supportsCanvas && ( this.viewer ? this.viewer.useCanvas : true );
+    if(this.useCanvas) {
+        this.renderer = new $.TileCanvasRenderer();
+    } else {
+        this.renderer = new $.TileHtmlRenderer();
+    }
     /**
      * The parent element of this Drawer instance, passed in when the Drawer was created.
      * The parent of {@link OpenSeadragon.Drawer#canvas}.
@@ -183,6 +192,7 @@ $.Drawer.prototype = /** @lends OpenSeadragon.Drawer.prototype */{
      * @fires OpenSeadragon.Viewer.event:add-overlay
      */
     addOverlay: function( element, location, placement, onDraw ) {
+
         var options;
         if( $.isPlainObject( element ) ){
             options = element;
@@ -196,6 +206,8 @@ $.Drawer.prototype = /** @lends OpenSeadragon.Drawer.prototype */{
         }
 
         element = $.getElement(options.element);
+
+        $.console.log('Drawer::addOverlay. Options : %O.', options);
 
         if ( getOverlayIndex( this.overlays, element ) >= 0 ) {
             // they're trying to add a duplicate overlay
@@ -381,11 +393,9 @@ $.Drawer.prototype = /** @lends OpenSeadragon.Drawer.prototype */{
      * @return {OpenSeadragon.Drawer} Chainable.
      */
     update: function() {
-        //this.profiler.beginUpdate();
         this.midUpdate = true;
         updateViewport( this );
         this.midUpdate = false;
-        //this.profiler.endUpdate();
         return this;
     },
 
@@ -451,6 +461,7 @@ $.Drawer.prototype = /** @lends OpenSeadragon.Drawer.prototype */{
             }, this.timeout );
 
             loading   = true;
+            $.console.log('Loading image %s',src);
             image.src = src;
         }
 
@@ -615,7 +626,7 @@ function updateViewport( drawer ) {
         return;
     }
 
-    //TODO
+    // Constrain viewport within bounds
     if ( !drawer.wrapHorizontal ) {
         viewportTL.x = Math.max( viewportTL.x, 0 );
         viewportBR.x = Math.min( viewportBR.x, 1 );
@@ -625,6 +636,7 @@ function updateViewport( drawer ) {
         viewportBR.y = Math.min( viewportBR.y, drawer.normHeight );
     }
 
+   //$.console.log('Drawing. Lowest %s. Highest %s', lowestLevel, highestLevel);
     //TODO
     lowestLevel = Math.min( lowestLevel, highestLevel );
 
@@ -948,7 +960,6 @@ function onTileLoad( drawer, tile, time, image ) {
     tile.loaded = true;
     tile.image  = image;
 
-
     insertionIndex = drawer.tilesLoaded.length;
 
     if ( drawer.tilesLoaded.length >= drawer.maxImageCacheCount ) {
@@ -982,6 +993,7 @@ function onTileLoad( drawer, tile, time, image ) {
 
         if ( worstTile && worstTileIndex >= 0 ) {
             worstTile.unload();
+            drawer.renderer.unload(worstTile);
             insertionIndex = worstTileIndex;
         }
     }
@@ -990,7 +1002,15 @@ function onTileLoad( drawer, tile, time, image ) {
     drawer.updateAgain = true;
 }
 
-
+/**
+ * Called every render update.
+ *
+ * @param tile
+ * @param overlap
+ * @param viewport
+ * @param viewportCenter
+ * @param levelVisibility
+ */
 function positionTile( tile, overlap, viewport, viewportCenter, levelVisibility ){
     var boundsTL     = tile.bounds.getTopLeft(),
         boundsSize   = tile.bounds.getSize(),
@@ -1005,6 +1025,7 @@ function positionTile( tile, overlap, viewport, viewportCenter, levelVisibility 
         sizeC = sizeC.plus( new $.Point( 1, 1 ) );
     }
 
+    //$.console.log('Position Tile. Pos: %O. Size: %O. Distance: %s. Visibility: %s.',positionC, sizeC, tileDistance, levelVisibility);
     tile.position   = positionC;
     tile.size       = sizeC;
     tile.distance   = tileDistance;
@@ -1183,6 +1204,7 @@ function compareTiles( previousBest, tile ) {
 
 function finishLoadingImage( image, callback, successful, jobid ){
 
+    $.console.log('Image Loaded %O',image);
     image.onload = null;
     image.onabort = null;
     image.onerror = null;
@@ -1220,101 +1242,31 @@ function drawOverlay( viewport, overlay, container ){
 
 function drawTiles( drawer, lastDrawn ){
     var i,
-        tile,
-        tileKey,
-        viewer,
-        viewport,
-        position,
-        tileSource,
-        collectionTileSource;
+        tile;
 
     for ( i = lastDrawn.length - 1; i >= 0; i-- ) {
         tile = lastDrawn[ i ];
 
-        //We dont actually 'draw' a collection tile, rather its used to house
-        //an overlay which does the drawing in its own viewport
-        if( drawer.viewport.collectionMode ){
+        if ( drawer.useCanvas ) {
 
-            tileKey = tile.x + '/' + tile.y;
-            viewport = drawer.viewport;
-            collectionTileSource = viewport.collectionTileSource;
-
-            if( !drawer.collectionOverlays[ tileKey ] ){
-
-                position = collectionTileSource.layout == 'horizontal' ?
-                    tile.y + ( tile.x * collectionTileSource.rows ) :
-                    tile.x + ( tile.y * collectionTileSource.rows );
-
-                if (position < collectionTileSource.tileSources.length) {
-                    tileSource = collectionTileSource.tileSources[ position ];
-                } else {
-                    tileSource = null;
-                }
-
-                //$.console.log("Rendering collection tile %s | %s | %s", tile.y, tile.y, position);
-                if( tileSource ){
-                    drawer.collectionOverlays[ tileKey ] = viewer = new $.Viewer({
-                        hash:                   viewport.viewer.hash + "-" + tileKey,
-                        element:                $.makeNeutralElement( "div" ),
-                        mouseNavEnabled:        false,
-                        showNavigator:          false,
-                        showSequenceControl:    false,
-                        showNavigationControl:  false,
-                        tileSources: [
-                            tileSource
-                        ]
-                    });
-
-                    //TODO: IE seems to barf on this, not sure if its just the border
-                    //      but we probably need to clear this up with a better
-                    //      test of support for various css features
-                    if( SUBPIXEL_RENDERING ){
-                        viewer.element.style.border = '1px solid rgba(255,255,255,0.38)';
-                        viewer.element.style['-webkit-box-reflect'] =
-                            'below 0px -webkit-gradient('+
-                                'linear,left '+
-                                'top,left '+
-                                'bottom,from(transparent),color-stop(62%,transparent),to(rgba(255,255,255,0.62))'+
-                            ')';
-                    }
-
-                    drawer.addOverlay(
-                        viewer.element,
-                        tile.bounds
-                    );
-                }
-
-            }else{
-                viewer = drawer.collectionOverlays[ tileKey ];
-                if( viewer.viewport ){
-                    viewer.viewport.resize( tile.size, true );
-                    viewer.viewport.goHome( true );
-                }
-            }
-
-        } else {
-
-            if ( drawer.useCanvas ) {
-                // TODO do this in a more performant way
-                // specifically, don't save,rotate,restore every time we draw a tile
-                if( drawer.viewport.degrees !== 0 ) {
-                    offsetForRotation( tile, drawer.canvas, drawer.context, drawer.viewport.degrees );
-                    tile.drawCanvas( drawer.context );
-                    restoreRotationChanges( tile, drawer.canvas, drawer.context );
-                } else {
-                    tile.drawCanvas( drawer.context );
-                }
+            // TODO do this in a more performant way
+            // specifically, don't save,rotate,restore every time we draw a tile
+            if( drawer.viewport.degrees !== 0 ) {
+                offsetForRotation( tile, drawer.canvas, drawer.context, drawer.viewport.degrees );
+                drawer.renderer.render(tile, drawer.context);
+                restoreRotationChanges( tile, drawer.canvas, drawer.context );
             } else {
-                tile.drawHTML( drawer.canvas );
+                drawer.renderer.render(tile, drawer.context);
             }
-
-
-            tile.beingDrawn = true;
+        } else {
+            drawer.renderer.render(tile, drawer.canvas);
         }
+
+        tile.beingDrawn = true;
 
         if( drawer.debugMode ){
             try{
-                drawDebugInfo( drawer, tile, lastDrawn.length, i );
+                drawer.renderer.debug( drawer, tile, lastDrawn.length, i );
             }catch(e){
                 $.console.error(e);
             }
@@ -1339,8 +1291,8 @@ function drawTiles( drawer, lastDrawn ){
 }
 
 function offsetForRotation( tile, canvas, context, degrees ){
-    var cx = canvas.width / 2,
-        cy = canvas.height / 2,
+    var cx = canvas.width >> 1,
+        cy = canvas.height >> 1,
         px = tile.position.x - cx,
         py = tile.position.y - cy;
 
@@ -1353,8 +1305,8 @@ function offsetForRotation( tile, canvas, context, degrees ){
 }
 
 function restoreRotationChanges( tile, canvas, context ){
-    var cx = canvas.width / 2,
-        cy = canvas.height / 2,
+    var cx = canvas.width >> 1,
+        cy = canvas.height >> 1,
         px = tile.position.x + cx,
         py = tile.position.y + cy;
 
@@ -1363,67 +1315,5 @@ function restoreRotationChanges( tile, canvas, context ){
 
     context.restore();
 }
-
-
-function drawDebugInfo( drawer, tile, count, i ){
-
-    if ( drawer.useCanvas ) {
-        drawer.context.save();
-        drawer.context.lineWidth = 2;
-        drawer.context.font = 'small-caps bold 13px ariel';
-        drawer.context.strokeStyle = drawer.debugGridColor;
-        drawer.context.fillStyle = drawer.debugGridColor;
-        drawer.context.strokeRect(
-            tile.position.x,
-            tile.position.y,
-            tile.size.x,
-            tile.size.y
-        );
-        if( tile.x === 0 && tile.y === 0 ){
-            drawer.context.fillText(
-                "Zoom: " + drawer.viewport.getZoom(),
-                tile.position.x,
-                tile.position.y - 30
-            );
-            drawer.context.fillText(
-                "Pan: " + drawer.viewport.getBounds().toString(),
-                tile.position.x,
-                tile.position.y - 20
-            );
-        }
-        drawer.context.fillText(
-            "Level: " + tile.level,
-            tile.position.x + 10,
-            tile.position.y + 20
-        );
-        drawer.context.fillText(
-            "Column: " + tile.x,
-            tile.position.x + 10,
-            tile.position.y + 30
-        );
-        drawer.context.fillText(
-            "Row: " + tile.y,
-            tile.position.x + 10,
-            tile.position.y + 40
-        );
-        drawer.context.fillText(
-            "Order: " + i + " of " + count,
-            tile.position.x + 10,
-            tile.position.y + 50
-        );
-        drawer.context.fillText(
-            "Size: " + tile.size.toString(),
-            tile.position.x + 10,
-            tile.position.y + 60
-        );
-        drawer.context.fillText(
-            "Position: " + tile.position.toString(),
-            tile.position.x + 10,
-            tile.position.y + 70
-        );
-        drawer.context.restore();
-    }
-}
-
 
 }( OpenSeadragon ));

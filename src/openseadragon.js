@@ -594,7 +594,7 @@ window.OpenSeadragon = window.OpenSeadragon || function( options ){
 
 /**
  *  This closure defines all static methods available to the OpenSeadragon
- *  namespace.  Many, if not most, are taked directly from jQuery for use
+ *  namespace.  Many, if not most, are taken directly from jQuery for use
  *  to simplify and reduce common programming patterns.  More static methods
  *  from jQuery may eventually make their way into this though we are
  *  attempting to avoid an explicit dependency on jQuery only because
@@ -605,6 +605,12 @@ window.OpenSeadragon = window.OpenSeadragon || function( options ){
  *  project.
  */
 (function( $ ){
+
+    $.LAYOUT = {
+        HORIZONTAL: 0,
+        VERTICAL:1
+    };
+
 
     /**
      * Taken from jQuery 1.6.1
@@ -762,9 +768,12 @@ window.OpenSeadragon = window.OpenSeadragon || function( options ){
 
             //COLLECTION VISUALIZATION SETTINGS
             collectionRows:         3, //or columns depending on layout
-            collectionLayout:       'horizontal', //vertical
+            collectionLayout:       $.LAYOUT.HORIZONTAL,
             collectionMode:         false,
             collectionTileSize:     800,
+
+            // COLLECTION RENDERING SETTINGS
+            renderCollectionInSingleViewport: false,
 
             //PERFORMANCE SETTINGS
             imageLoaderLimit:       0,
@@ -1247,7 +1256,19 @@ window.OpenSeadragon = window.OpenSeadragon || function( options ){
             return element;
         },
 
-
+        /**
+         * Create form element containers for Viewer / ControlDock
+         * @returns {Element}
+         */
+        makeFormContainer: function() {
+            var container = $.makeNeutralElement('form');
+            // Disable the form's submit; otherwise button clicks and return keys
+            // can trigger it.
+            container.onsubmit = function() {
+                return false;
+            };
+            return container;
+        },
         /**
          * Returns the current milliseconds, using Date.now() if available
          * @function

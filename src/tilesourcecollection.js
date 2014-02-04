@@ -40,6 +40,7 @@
  * @extends OpenSeadragon.TileSource
  */
 $.TileSourceCollection = function( tileSize, tileSources, rows, layout  ) {
+
     var options;
 
     if( $.isPlainObject( tileSize ) ){
@@ -53,8 +54,10 @@ $.TileSourceCollection = function( tileSize, tileSources, rows, layout  ) {
         };
     }
 
-    if( !options.layout ){
-        options.layout = 'horizontal';
+  $.console.log('Create TileSourceCollection : %O', options);
+
+  if( !options.layout ){
+        options.layout = $.LAYOUT.HORIZONTAL;
     }
 
     var minLevel = 0,
@@ -64,7 +67,7 @@ $.TileSourceCollection = function( tileSize, tileSources, rows, layout  ) {
             tilesPerRow :
             options.rows;
 
-    if( 'horizontal' == options.layout ){
+    if($.LAYOUT.HORIZONTAL == options.layout ){
         options.width = ( options.tileSize ) * tilesPerRow;
         options.height = ( options.tileSize ) * options.rows;
     } else {
@@ -89,6 +92,9 @@ $.TileSourceCollection = function( tileSize, tileSources, rows, layout  ) {
     //    $.console.log( 'Collection %s %s', name, options[ name ] );
     //}
 
+    // Call the TileSource constructor with 'this' as the context, a.k.a super(options)
+    // As per most OSD constructor functions this will merge the options with 'this' object so
+    // that the options become instance properties
     $.TileSource.apply( this, [ options ] );
 
 };

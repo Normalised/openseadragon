@@ -40,23 +40,22 @@
      * @memberof OpenSeadragon
      */
     $.ControlDock = function( options ){
+
+        $.console.log('Create ControlDock : %O', options);
+
         var layouts = [ 'topleft', 'topright', 'bottomright', 'bottomleft'],
             layout,
             i;
 
         $.extend( true, this, {
             id: 'controldock-'+$.now()+'-'+Math.floor(Math.random()*1000000),
-            container: $.makeNeutralElement('form'),
+            container: $.makeFormContainer(),
             controls: []
         }, options );
 
-        // Disable the form's submit; otherwise button clicks and return keys
-        // can trigger it.
-        this.container.onsubmit = function() {
-            return false;
-        };
-
         if( this.element ){
+            $.console.log('Append container to element %O ', this.element);
+
             this.element = $.getElement( this.element );
             this.element.appendChild( this.container );
             this.element.style.position = 'relative';

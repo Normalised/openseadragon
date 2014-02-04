@@ -43,7 +43,7 @@
  * 'getTileUrl'.  It also has several optional interfaces that can be
  * implemented if a new TileSource wishes to support configuration via a simple
  * object or array ('configure') and if the tile source supports or requires
- * configuration via retreival of a document on the network ala AJAX or JSONP,
+ * configuration via retrieval of a document on the network ala AJAX or JSONP,
  * ('getImageInfo').
  * <br/>
  * By default the image pyramid is split into N layers where the images longest

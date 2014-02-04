@@ -20,12 +20,14 @@ module.exports = function(grunt) {
         packageDir = "build/" + packageDirName + "/",
         releaseRoot = "../site-build/built-openseadragon/",
         sources = [
+            "node_modules/q/q.js",
             "src/openseadragon.js",
             "src/fullscreen.js",
             "src/eventsource.js",
             "src/mousetracker.js",
             "src/control.js",
             "src/controldock.js",
+            "src/ViewerControls.js",
             "src/viewer.js",
             "src/navigator.js",
             "src/strings.js",
@@ -48,7 +50,10 @@ module.exports = function(grunt) {
             "src/tile.js",
             "src/overlay.js",
             "src/drawer.js",
-            "src/viewport.js"
+            "src/viewport.js",
+            "src/TileCanvasRenderer.js",
+            "src/TileHtmlRenderer.js",
+            "src/TileSourceFactory.js"
         ];
 
     // ----------
@@ -154,7 +159,8 @@ module.exports = function(grunt) {
         },
         jshint: {
             options: {
-                jshintrc: '.jshintrc'
+                jshintrc: '.jshintrc',
+                force: true
             },
             beforeconcat: sources,
             afterconcat: [ distribution ]
