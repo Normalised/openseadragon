@@ -111,7 +111,7 @@ $.Drawer = function( options ) {
 
     this.useCanvas  = $.supportsCanvas && ( this.viewer ? this.viewer.useCanvas : true );
     if(this.useCanvas) {
-        this.renderer = new $.TileCanvasRenderer();
+        this.renderer = new $.TileCanvasRenderer({debugGridColor:options.debugGridColor,debugTextColor:options.debugTextColor});
     } else {
         this.renderer = new $.TileHtmlRenderer();
     }
@@ -394,7 +394,7 @@ $.Drawer.prototype = /** @lends OpenSeadragon.Drawer.prototype */{
      */
     update: function() {
         this.midUpdate = true;
-        updateViewport( this );
+        draw( this );
         this.midUpdate = false;
         return this;
     },
@@ -461,7 +461,7 @@ $.Drawer.prototype = /** @lends OpenSeadragon.Drawer.prototype */{
             }, this.timeout );
 
             loading   = true;
-            $.console.log('Loading image %s',src);
+//            $.console.log('Loading image %s',src);
             image.src = src;
         }
 
@@ -490,27 +490,24 @@ $.Drawer.prototype = /** @lends OpenSeadragon.Drawer.prototype */{
  * how each piece of this routine contributes to the drawing process.  That's
  * why there are so many TODO's inside this function.
  */
-function updateViewport( drawer ) {
+function draw( drawer ) {
 
     drawer.updateAgain = false;
 
     if( drawer.viewer ){
-        /**
-         * <em>- Needs documentation -</em>
-         *
-         * @event update-viewport
-         * @memberof OpenSeadragon.Viewer
-         * @type {object}
-         * @property {OpenSeadragon.Viewer} eventSource - A reference to the Viewer which raised the event.
-         * @property {?Object} userData - Arbitrary subscriber-defined object.
-         */
         drawer.viewer.raiseEvent( 'update-viewport', {} );
     }
 
-    var pixelRatio = drawer.source.getPixelRatio(0);
+    var pixelRatio  = drawer.source.getPixelRatio(0);
     var deltaPixels = drawer.viewport.deltaPixelsFromPoints( pixelRatio, true);
-    var zeroRatioC = deltaPixels.x;
-
+    var zeroRatioC  = deltaPixels.x;
+    var lowestLevel = Math.max(
+        drawer.source.minLevel,
+        Math.floor(
+            Math.log( drawer.minZoomImageRatio ) /
+                Math.log( 2 )
+        )
+    );
 //    $.console.log('PR %O. DP %O. ZRC %s',pixelRatio, deltaPixels, zeroRatioC);
     var tile,
         level,
@@ -522,13 +519,6 @@ function updateViewport( drawer ) {
         viewportTL      = viewportBounds.getTopLeft(),
         viewportBR      = viewportBounds.getBottomRight(),
 
-        lowestLevel     = Math.max(
-            drawer.source.minLevel,
-            Math.floor(
-                Math.log( drawer.minZoomImageRatio ) /
-                Math.log( 2 )
-            )
-        ),
         highestLevel    = Math.min(
             Math.abs(drawer.source.maxLevel),
             Math.abs(Math.floor(
@@ -553,12 +543,17 @@ function updateViewport( drawer ) {
     //TODO
     drawer.canvas.innerHTML   = "";
     if ( drawer.useCanvas ) {
-        if( drawer.canvas.width  != viewportSize.x ||
-            drawer.canvas.height != viewportSize.y ){
+        if( drawer.canvas.width  != viewportSize.x || drawer.canvas.height != viewportSize.y ) {
+            $.console.log('Resize canvas %s,%s to viewport %s for drawer %s',drawer.canvas.width,drawer.canvas.height,viewportSize.toString(),drawer.sourceIndex);
             drawer.canvas.width  = viewportSize.x;
             drawer.canvas.height = viewportSize.y;
         }
-        drawer.context.clearRect( 0, 0, viewportSize.x, viewportSize.y );
+
+        // Only clear the context for the first drawer
+        // TODO : Change context clearing for some better system, like the viewer clearing it or heirarchical drawers..
+        if(drawer.sourceIndex == 0) {
+            drawer.context.clearRect( 0, 0, viewportSize.x, viewportSize.y );
+        }
     }
 
     //Change bounds for rotation
@@ -627,15 +622,11 @@ function updateViewport( drawer ) {
             false
         ).x;
 
-        optimalRatio    = drawer.immediateRender ?
-            1 :
-            zeroRatioT;
+        optimalRatio    = drawer.immediateRender ? 1 : zeroRatioT;
 
         levelOpacity    = Math.min( 1, ( renderPixelRatioC - 0.5 ) / 0.5 );
 
-        levelVisibility = optimalRatio / Math.abs(
-            optimalRatio - renderPixelRatioT
-        );
+        levelVisibility = optimalRatio / Math.abs( optimalRatio - renderPixelRatioT );
 
         //TODO
         best = updateLevel(
@@ -652,7 +643,7 @@ function updateViewport( drawer ) {
         );
 
         //TODO
-        if (  providesCoverage( drawer.coverage, level ) ) {
+        if ( providesCoverage( drawer.coverage, level ) ) {
             break;
         }
     }
@@ -679,25 +670,7 @@ function updateLevel( drawer, haveDrawn, drawLevel, level, levelOpacity, levelVi
         numberOfTiles,
         viewportCenter  = drawer.viewport.pixelFromPoint( drawer.viewport.getCenter() );
 
-
     if( drawer.viewer ){
-        /**
-         * <em>- Needs documentation -</em>
-         *
-         * @event update-level
-         * @memberof OpenSeadragon.Viewer
-         * @type {object}
-         * @property {OpenSeadragon.Viewer} eventSource - A reference to the Viewer which raised the event.
-         * @property {Object} havedrawn
-         * @property {Object} level
-         * @property {Object} opacity
-         * @property {Object} visibility
-         * @property {Object} topleft
-         * @property {Object} bottomright
-         * @property {Object} currenttime
-         * @property {Object} best
-         * @property {?Object} userData - Arbitrary subscriber-defined object.
-         */
         drawer.viewer.raiseEvent( 'update-level', {
             havedrawn: haveDrawn,
             level: level,
@@ -761,16 +734,6 @@ function updateTile( drawer, drawLevel, haveDrawn, x, y, level, levelOpacity, le
         drawTile = drawLevel;
 
     if( drawer.viewer ){
-        /**
-         * <em>- Needs documentation -</em>
-         *
-         * @event update-tile
-         * @memberof OpenSeadragon.Viewer
-         * @type {object}
-         * @property {OpenSeadragon.Viewer} eventSource - A reference to the Viewer which raised the event.
-         * @property {OpenSeadragon.Tile} tile
-         * @property {?Object} userData - Arbitrary subscriber-defined object.
-         */
         drawer.viewer.raiseEvent( 'update-tile', {
             tile: tile
         });
@@ -874,7 +837,7 @@ function loadTile( drawer, tile, time ) {
             onTileLoad( drawer, tile, time, image );
         }
     );
-    
+
 }
 
 function onTileLoad( drawer, tile, time, image ) {

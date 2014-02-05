@@ -54,14 +54,22 @@ $.TileSourceCollection = function( tileSize, tileSources, rows, layout  ) {
         };
     }
 
-  $.console.log('Create TileSourceCollection : %O', options);
+    if(options.tileSources === null) {
+        throw new Error('No Tile Sources provided for collection');
+    }
 
-  if(!$.isArray(options.tileSources)) {
+    $.console.log('Create TileSourceCollection : %O', options);
+
+    if(!$.isArray(options.tileSources)) {
       options.tileSources = [options.tileSources];
-  }
+    }
 
-  if( !options.layout ){
+    var isHorizontal = true;
+
+    if( !options.layout ){
         options.layout = $.LAYOUT.HORIZONTAL;
+    } else {
+        isHorizontal = options.layout == $.LAYOUT.HORIZONTAL;
     }
 
     var minLevel = 0,
@@ -71,7 +79,7 @@ $.TileSourceCollection = function( tileSize, tileSources, rows, layout  ) {
             tilesPerRow :
             options.rows;
 
-    if($.LAYOUT.HORIZONTAL == options.layout ){
+    if(isHorizontal){
         options.width = ( options.tileSize ) * tilesPerRow;
         options.height = ( options.tileSize ) * options.rows;
     } else {
@@ -81,8 +89,6 @@ $.TileSourceCollection = function( tileSize, tileSources, rows, layout  ) {
 
     options.tileOverlap = -options.tileMargin;
     options.tilesPerRow = tilesPerRow;
-
-    $.console.log('Calculated Collection Dimensions %s,%s',options.width, options.height);
 
     //Set min level to avoid loading sublevels since collection is a
     //different kind of abstraction
@@ -103,11 +109,20 @@ $.TileSourceCollection = function( tileSize, tileSources, rows, layout  ) {
     // that the options become instance properties
     $.TileSource.apply( this, [ options ] );
 
-//    this.dimensions = new $.Point(0,0);
-//    for(var i=0;i<this.tileSources.length;i++) {
-//        this.dimensions = this.dimensions.plus(this.tileSources[i].dimensions);
-//    }
-//    $.console.log()
+    // Calculate complete width / height
+    var w = isHorizontal ? 0 : this.tileSources[0].dimensions.x;
+    var h = isHorizontal ? this.tileSources[0].dimensions.y : 0;
+    var ts = null;
+    for(var i=0;i<this.tileSources.length;i++) {
+        ts = this.tileSources[i];
+        if(isHorizontal) {
+            w += ts.dimensions.x;
+        } else {
+            h += ts.dimensions.y;
+        }
+    }
+    this.dimensions = new $.Point(w,h);
+    $.console.log('Calculated Collection Dimensions %s', this.dimensions.toString());
 };
 
 $.extend( $.TileSourceCollection.prototype, $.TileSource.prototype, /** @lends OpenSeadragon.TileSourceCollection.prototype */{

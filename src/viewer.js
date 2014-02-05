@@ -1237,11 +1237,15 @@ function createDrawers(viewer, tileSources) {
     canvas.style.position  = "absolute";
     $.getElement(viewer.canvas).appendChild( canvas );
 
+    var gridColours = ['#00FF00','#FFFF00'];
     var ox = 0;
     var oy = 0;
     for(var i=0;i<tileSources.length;i++) {
         var source = tileSources[i];
+        var gridColor = gridColours[i % gridColours.length];
+
         drawer = new $.Drawer({
+            sourceIndex:        i,
             viewer:             viewer,
             source:             source,
             viewport:           viewer.viewport,
@@ -1259,7 +1263,7 @@ function createDrawers(viewer, tileSources) {
             minPixelRatio:      viewer.minPixelRatio,
             timeout:            viewer.timeout,
             debugMode:          viewer.debugMode,
-            debugGridColor:     viewer.debugGridColor
+            debugGridColor:     gridColor
         });
 
         drawer.setRenderOffset(ox, oy);

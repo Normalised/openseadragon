@@ -7,10 +7,18 @@
 
     var TILE_CACHE       = {};
 
-    $.TileCanvasRenderer = function() {
+    var DEFAULTS = {
+        debugGridColor:"#437AB2",
+        debugTextColor:"#FF0000"
+    };
+
+    $.TileCanvasRenderer = function(options) {
         $.console.log('New TileCanvasRenderer');
-        this.offsetX = 0;
-        this.offsetY = 0;
+        if(options == null) {
+            options = {};
+        }
+
+        $.extend(this, DEFAULTS, options);
     };
 
     $.TileCanvasRenderer.prototype = {
@@ -87,9 +95,9 @@
         debug:function(drawer, tile, count, i) {
             drawer.context.save();
             drawer.context.lineWidth = 2;
-            drawer.context.font = 'small-caps bold 13px ariel';
-            drawer.context.strokeStyle = drawer.debugGridColor;
-            drawer.context.fillStyle = drawer.debugGridColor;
+            drawer.context.font = 'small-caps bold 11px arial';
+            drawer.context.strokeStyle = this.debugGridColor;
+            drawer.context.fillStyle = this.debugTextColor;
             drawer.context.strokeRect(
                 tile.position.x,
                 tile.position.y,
@@ -98,12 +106,12 @@
             );
             if( tile.x === 0 && tile.y === 0 ){
                 drawer.context.fillText(
-                    "Zoom: " + drawer.viewport.getZoom(),
+                    "Zoom: " + drawer.viewport.getZoom(true),
                     tile.position.x,
                     tile.position.y - 30
                 );
                 drawer.context.fillText(
-                    "Pan: " + drawer.viewport.getBounds().toString(),
+                    "Pan: " + drawer.viewport.getBounds(true).toString(),
                     tile.position.x,
                     tile.position.y - 20
                 );
@@ -129,12 +137,12 @@
                 tile.position.y + 50
             );
             drawer.context.fillText(
-                "Size: " + tile.size.toString(),
+                "Size: " + tile.size.toStringRounded(),
                 tile.position.x + 10,
                 tile.position.y + 60
             );
             drawer.context.fillText(
-                "Position: " + tile.position.toString(),
+                "Position: " + tile.position.toStringRounded(),
                 tile.position.x + 10,
                 tile.position.y + 70
             );

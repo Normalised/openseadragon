@@ -326,6 +326,9 @@ $.Viewport.prototype = /** @lends OpenSeadragon.Viewport.prototype */{
      * @fires OpenSeadragon.Viewer.event:constrain
      */
     applyConstraints: function( immediately ) {
+
+        $.console.log('Apply Constraints');
+
         var actualZoom = this.getZoom(),
             constrainedZoom = Math.max(
                 Math.min( actualZoom, this.getMaxZoom() ),
@@ -548,6 +551,8 @@ $.Viewport.prototype = /** @lends OpenSeadragon.Viewport.prototype */{
      * @fires OpenSeadragon.Viewer.event:pan
      */
     panTo: function( center, immediately ) {
+
+//        $.console.log('Pan To %s',center.toString());
         if ( immediately ) {
             this.centerSpringX.resetTo( center.x );
             this.centerSpringY.resetTo( center.y );
@@ -599,6 +604,7 @@ $.Viewport.prototype = /** @lends OpenSeadragon.Viewport.prototype */{
      */
     zoomTo: function( zoom, refPoint, immediately ) {
 
+        $.console.log('Zoom To %s %O',zoom, refPoint);
         this.zoomPoint = refPoint instanceof $.Point &&
             !isNaN(refPoint.x) &&
             !isNaN(refPoint.y) ?

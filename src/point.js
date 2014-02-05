@@ -186,13 +186,12 @@ $.Point.prototype = /** @lends OpenSeadragon.Point.prototype */{
     },
 
     /**
-     * Add another Point to this point and return a new Point.
-     * @function
-     * @param {OpenSeadragon.Point} point The point to add vector components.
-     * @returns {OpenSeadragon.Point} A new point representing the sum of the
-     *  vector components
      */
     toString: function() {
+        return "(" + this.x + "," + this.y + ")";
+    },
+
+    toStringRounded:function() {
         return "(" + Math.round(this.x) + "," + Math.round(this.y) + ")";
     }
 };
