@@ -117,6 +117,8 @@ $.Spring.prototype = /** @lends OpenSeadragon.Spring.prototype */{
      * @param {Number} target
      */
     resetTo: function( target ) {
+//        $.console.log('Reset Spring To %s', target);
+
         this.target.value = target;
         this.target.time  = this.current.time;
         this.start.value  = this.target.value;
@@ -128,6 +130,8 @@ $.Spring.prototype = /** @lends OpenSeadragon.Spring.prototype */{
      * @param {Number} target
      */
     springTo: function( target ) {
+
+//        $.console.log('Spring To %s', target);
         this.start.value  = this.current.value;
         this.start.time   = this.current.time;
         this.target.value = target;

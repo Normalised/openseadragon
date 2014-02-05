@@ -507,6 +507,11 @@ function updateViewport( drawer ) {
         drawer.viewer.raiseEvent( 'update-viewport', {} );
     }
 
+    var pixelRatio = drawer.source.getPixelRatio(0);
+    var deltaPixels = drawer.viewport.deltaPixelsFromPoints( pixelRatio, true);
+    var zeroRatioC = deltaPixels.x;
+
+//    $.console.log('PR %O. DP %O. ZRC %s',pixelRatio, deltaPixels, zeroRatioC);
     var tile,
         level,
         best            = null,
@@ -516,10 +521,7 @@ function updateViewport( drawer ) {
         viewportBounds  = drawer.viewport.getBounds( true ),
         viewportTL      = viewportBounds.getTopLeft(),
         viewportBR      = viewportBounds.getBottomRight(),
-        zeroRatioC      = drawer.viewport.deltaPixelsFromPoints(
-            drawer.source.getPixelRatio( 0 ),
-            true
-        ).x,
+
         lowestLevel     = Math.max(
             drawer.source.minLevel,
             Math.floor(
@@ -586,7 +588,7 @@ function updateViewport( drawer ) {
         viewportBR.y = Math.min( viewportBR.y, drawer.normHeight );
     }
 
-   //$.console.log('Drawing. Lowest %s. Highest %s', lowestLevel, highestLevel);
+    //$.console.log('Drawing. Lowest %s. Highest %s', lowestLevel, highestLevel);
     //TODO
     lowestLevel = Math.min( lowestLevel, highestLevel );
 
@@ -866,11 +868,13 @@ function getTile( x, y, level, tileSource, tilesMatrix, time, numTiles, normHeig
 
 
 function loadTile( drawer, tile, time ) {
+//    $.console.log('Load Tile %O %O %s', drawer, tile, time);
     tile.loading = drawer.loadImage( tile.url,
         function( image ){
             onTileLoad( drawer, tile, time, image );
         }
     );
+    
 }
 
 function onTileLoad( drawer, tile, time, image ) {
@@ -1148,7 +1152,7 @@ function compareTiles( previousBest, tile ) {
 
 function finishLoadingImage( image, callback, successful, jobid ){
 
-    $.console.log('Image Loaded %O',image);
+//    $.console.log('Image Loaded %O',image);
     image.onload = null;
     image.onabort = null;
     image.onerror = null;

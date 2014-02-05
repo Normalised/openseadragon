@@ -1101,19 +1101,14 @@ function openTileSource( viewer, source ) {
             tileSources: source,
             tileMargin: _this.collectionTileMargin
         });
-        // Add custom viewport options for collections
-        $.extend(viewportOptions, {
-            collectionMode:         true,
-            collectionTileSource:   _this.source,
-            showNavigator:          false
-        });
+
     } else if( source ){
         _this.source = source;
     }
 
     viewportOptions.contentSize = _this.source.dimensions;
 
-        $.console.log('Content Size %O',viewportOptions.contentSize);
+    $.console.log('Content Size %O',viewportOptions.contentSize);
 
     _this.viewport = _this.viewport ? _this.viewport : new $.Viewport(viewportOptions);
 
@@ -1123,7 +1118,7 @@ function openTileSource( viewer, source ) {
 
     _this.source.overlays = _this.source.overlays || [];
 
-    _this.drawers = createDrawers(_this, _this.source.tileSources);
+    _this.drawers = createDrawers(_this, _this.collectionMode ? _this.source.tileSources : _this.source);
 
         $.console.log('Created Drawers %O',_this.drawers );
     //Instantiate a navigator if configured
@@ -1261,7 +1256,7 @@ function createDrawers(viewer, tileSources) {
             immediateRender:    viewer.immediateRender,
             blendTime:          viewer.blendTime,
             alwaysBlend:        viewer.alwaysBlend,
-            minPixelRatio:      viewer.collectionMode ? 0 : viewer.minPixelRatio,
+            minPixelRatio:      viewer.minPixelRatio,
             timeout:            viewer.timeout,
             debugMode:          viewer.debugMode,
             debugGridColor:     viewer.debugGridColor
