@@ -174,7 +174,7 @@ $.Point.prototype = /** @lends OpenSeadragon.Point.prototype */{
      * Rotates the point around the specified pivot
      * From http://stackoverflow.com/questions/4465931/rotate-rectangle-around-a-point
      * @function
-     * @param {Number} degress to rotate around the pivot.
+     * @param {Number} degrees to rotate around the pivot.
      * @param {OpenSeadragon.Point} pivot Point about which to rotate.
      * @returns {OpenSeadragon.Point}. A new point representing the point rotated around the specified pivot
      */
