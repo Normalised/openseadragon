@@ -201,7 +201,7 @@ $.Tile.prototype = /** @lends OpenSeadragon.Tile.prototype */{
      */
     unload: function() {
 
-        $.console.log('Unload Tile. %O',this);
+        //$.console.log('Unload Tile. %O',this);
 
         this.image      = null;
         this.loaded     = false;

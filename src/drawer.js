@@ -480,8 +480,8 @@ $.Drawer.prototype = /** @lends OpenSeadragon.Drawer.prototype */{
     },
     setRenderOffset:function(offset) {
         // dont draw at 0,0
-        this.renderer.offsetX = offset.x;
-        this.renderer.offsetY = offset.y;
+//        this.renderer.offsetX = offset.x;
+//        this.renderer.offsetY = offset.y;
     }
 };
 
@@ -564,7 +564,7 @@ function draw( drawer, bounds ) {
         viewportBR.y = Math.min( viewportBR.y, drawer.normHeight );
     }
 
-    $.console.log('Drawing. Lowest %s. Highest %s', lowestLevel, highestLevel);
+//    $.console.log('Drawing. Lowest %s. Highest %s', lowestLevel, highestLevel);
     //TODO
     lowestLevel = Math.min( lowestLevel, highestLevel );
 
@@ -721,15 +721,17 @@ function updateTile( drawer, drawLevel, haveDrawn, x, y, level, levelOpacity, le
         });
     }
 
-    setCoverage( drawer.coverage, level, x, y, false );
+    var coverage = drawer.coverage;
+    setCoverage( coverage, level, x, y, false );
 
     if ( !tile.exists ) {
+        $.console.log('Tile Doesnt Exist, Send back best %O',best);
         return best;
     }
 
     if ( haveDrawn && !drawTile ) {
-        if ( isCovered( drawer.coverage, level, x, y ) ) {
-            setCoverage( drawer.coverage, level, x, y, true );
+        if ( isCovered( coverage, level, x, y ) ) {
+            setCoverage( coverage, level, x, y, true );
         } else {
             drawTile = true;
         }

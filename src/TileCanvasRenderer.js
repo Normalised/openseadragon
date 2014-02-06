@@ -14,6 +14,9 @@
 
     $.TileCanvasRenderer = function(options) {
         $.console.log('New TileCanvasRenderer');
+
+        this.offsetX = 0;
+        this.offsetY = 0;
         if(options == null) {
             options = {};
         }
@@ -76,8 +79,8 @@
                 0,
                 rendered.canvas.width,
                 rendered.canvas.height,
-                position.x + this.offsetX,
-                position.y + this.offsetY,
+                position.x,
+                position.y,
                 size.x,
                 size.y
             );
@@ -99,8 +102,8 @@
             drawer.context.strokeStyle = this.debugGridColor;
             drawer.context.fillStyle = this.debugTextColor;
 
-            var tx = tile.position.x + this.offsetX;
-            var ty = tile.position.y + this.offsetY;
+            var tx = tile.position.x;
+            var ty = tile.position.y;
 
             drawer.context.strokeRect(
                 tx,ty,

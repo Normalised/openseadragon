@@ -313,7 +313,7 @@ $.Viewport.prototype = /** @lends OpenSeadragon.Viewport.prototype */{
      */
     applyConstraints: function( immediately ) {
 
-        $.console.log('Apply Constraints');
+        //$.console.log('Apply Constraints');
 
         var actualZoom = this.getZoom(),
             constrainedZoom = Math.max(

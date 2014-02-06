@@ -1611,7 +1611,7 @@ function updateDrawers( viewer ) {
         for(i=0;i<numSections;i++) {
             drawer = viewer.drawers[i];
             offset.x = widthDrawnSoFar;
-            drawer.setRenderOffset(viewer.viewport.pixelFromPoint(offset, true));
+            //drawer.setRenderOffset(viewer.viewport.pixelFromPoint(offset, true));
             drawer.update(viewportBounds);
             // Need to increment the amount drawn by the actual pixel size of the rendered image
             // widthDrawnSoFar +=
