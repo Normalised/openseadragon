@@ -231,11 +231,20 @@ $.TileSource.prototype = /** @lends OpenSeadragon.TileSource.prototype */{
      * @param {Number} level
      */
     getPixelRatio: function( level ) {
-        var imageSizeScaled = this.dimensions.times( this.getLevelScale( level ) ),
-            rx = 1.0 / imageSizeScaled.x,
-            ry = 1.0 / imageSizeScaled.y;
+        // Again generate a memoized implementation
+        var pixelRatioCache = {},
+            i;
+        for( i = 0; i <= this.maxLevel; i++ ){
+            var imageSizeScaled = this.dimensions.times( this.getLevelScale( i ) ),
+                rx = 1.0 / imageSizeScaled.x,
+                ry = 1.0 / imageSizeScaled.y;
 
-        return new $.Point(rx, ry);
+            pixelRatioCache[ i ] = new $.Point(rx,ry);
+        }
+        this.getPixelRatio = function( _level ){
+            return pixelRatioCache[ _level ];
+        };
+        return this.getPixelRatio( level );
     },
 
 
