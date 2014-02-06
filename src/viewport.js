@@ -250,8 +250,8 @@ $.Viewport.prototype = /** @lends OpenSeadragon.Viewport.prototype */{
             height = width / this.getAspectRatio();
 
         return new $.Rect(
-            center.x - ( width / 2.0 ),
-            center.y - ( height / 2.0 ),
+            center.x - ( width >> 1 ),
+            center.y - ( height >> 1 ),
             width,
             height
         );
