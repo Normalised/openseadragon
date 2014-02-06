@@ -233,19 +233,32 @@ $.Rect.prototype = /** @lends OpenSeadragon.Rect.prototype */{
         return new $.Rect(newTopLeft.x, newTopLeft.y, width, height);
     },
 
+    clone:function() {
+        return new $.Rect(this.x,this.y,this.width,this.height);
+    },
     /**
      * Provides a string representation of the rectangle which is useful for
      * debugging.
+     * Note : toStringRounded is the original implementation which shows all the values multiplied by 100 and rounded
+     * It has been replaced because sometimes you need to see the real values
      * @function
      * @returns {String} A string representation of the rectangle.
      */
-    toString: function() {
+    toStringRounded: function() {
         return "[" +
             Math.round(this.x*100) + "," +
             Math.round(this.y*100) + "," +
             Math.round(this.width*100) + "x" +
             Math.round(this.height*100) +
         "]";
+    },
+    toString: function() {
+        return "[" +
+            this.x + "," +
+            this.y + "," +
+            this.width + "x" +
+            this.height +
+            "]";
     }
 };
 
