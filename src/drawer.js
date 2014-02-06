@@ -478,10 +478,10 @@ $.Drawer.prototype = /** @lends OpenSeadragon.Drawer.prototype */{
     canRotate: function() {
         return this.useCanvas;
     },
-    setRenderOffset:function(ox, oy) {
+    setRenderOffset:function(offset) {
         // dont draw at 0,0
-        this.renderer.offsetX = ox;
-        this.renderer.offsetY = oy;
+        this.renderer.offsetX = offset.x;
+        this.renderer.offsetY = offset.y;
     }
 };
 
