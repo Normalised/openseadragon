@@ -500,7 +500,8 @@ function draw( drawer, bounds ) {
         drawer.viewer.raiseEvent( 'update-viewport', {} );
     }
 
-    var pixelRatio  = drawer.source.getPixelRatio(0);
+    var tileSource = drawer.source;
+    var pixelRatio  = tileSource.getPixelRatio(0);
     var deltaPixels = drawer.viewport.deltaPixelsFromPoints( pixelRatio, true);
     var zeroRatioC  = deltaPixels.x;
     var lowestLevel = Math.max( drawer.source.minLevel, drawer.lowestLevelK);
@@ -516,7 +517,7 @@ function draw( drawer, bounds ) {
         viewportBR      = viewportBounds.getBottomRight(),
 
         highestLevel    = Math.min(
-            Math.abs(drawer.source.maxLevel),
+            Math.abs(tileSource.maxLevel),
             Math.abs(Math.floor(
                 Math.log( zeroRatioC / drawer.minPixelRatio ) /
                 Math.log( 2 )
@@ -575,7 +576,7 @@ function draw( drawer, bounds ) {
 
         //Avoid calculations for draw if we have already drawn this
         renderPixelRatioC = drawer.viewport.deltaPixelsFromPoints(
-            drawer.source.getPixelRatio( level ),
+            tileSource.getPixelRatio( level ),
             true
         ).x;
 
@@ -589,14 +590,14 @@ function draw( drawer, bounds ) {
 
         //Perform calculations for draw if we haven't drawn this
         renderPixelRatioT = drawer.viewport.deltaPixelsFromPoints(
-            drawer.source.getPixelRatio( level ),
+            tileSource.getPixelRatio( level ),
             false
         ).x;
 
         zeroRatioT      = drawer.viewport.deltaPixelsFromPoints(
-            drawer.source.getPixelRatio(
+            tileSource.getPixelRatio(
                 Math.max(
-                    drawer.source.getClosestLevel( drawer.viewport.containerSize ) - 1,
+                    tileSource.getClosestLevel( drawer.viewport.containerSize ) - 1,
                     0
                 )
             ),
@@ -738,13 +739,12 @@ function updateTile( drawer, drawLevel, haveDrawn, x, y, level, levelOpacity, le
         return best;
     }
 
+    tile.visibility = levelVisibility;
     positionTile(
         tile,
         drawer.source.tileOverlap,
         drawer.viewport,
-        viewportCenter,
-        levelVisibility
-    );
+        viewportCenter);
 
     if ( tile.loaded ) {
         var needsUpdate = blendTile(
@@ -794,14 +794,7 @@ function getTile( x, y, level, tileSource, tilesMatrix, time, numTiles, normHeig
         bounds.x += 1.0 * ( x - xMod ) / numTiles.x;
         bounds.y += normHeight * ( y - yMod ) / numTiles.y;
 
-        tilesMatrix[ level ][ x ][ y ] = new $.Tile(
-            level,
-            x,
-            y,
-            bounds,
-            exists,
-            url
-        );
+        tilesMatrix[ level ][ x ][ y ] = new $.Tile( level, x, y, bounds, exists, url );
     }
 
     tile = tilesMatrix[ level ][ x ][ y ];
@@ -863,7 +856,7 @@ function onTileLoad( drawer, tile, time, image ) {
         for ( i = drawer.tilesLoaded.length - 1; i >= 0; i-- ) {
             prevTile = drawer.tilesLoaded[ i ];
 
-            if ( prevTile.level <= drawer.cutoff || prevTile.beingDrawn ) {
+            if ( prevTile.level <= cutoff || prevTile.beingDrawn ) {
                 continue;
             } else if ( !worstTile ) {
                 worstTile       = prevTile;
@@ -901,12 +894,13 @@ function onTileLoad( drawer, tile, time, image ) {
  * @param overlap
  * @param viewport
  * @param viewportCenter
- * @param levelVisibility
  */
-function positionTile( tile, overlap, viewport, viewportCenter, levelVisibility ){
+function positionTile( tile, overlap, viewport, viewportCenter ){
     var boundsTL     = tile.bounds.getTopLeft(),
         boundsSize   = tile.bounds.getSize(),
+        // Current position of tile TL
         positionC    = viewport.pixelFromPoint( boundsTL, true ),
+        // Destination position of tile TL
         positionT    = viewport.pixelFromPoint( boundsTL, false ),
         sizeC        = viewport.deltaPixelsFromPoints( boundsSize, true ),
         sizeT        = viewport.deltaPixelsFromPoints( boundsSize, false ),
@@ -921,7 +915,6 @@ function positionTile( tile, overlap, viewport, viewportCenter, levelVisibility 
     tile.position   = positionC;
     tile.size       = sizeC;
     tile.distance   = tileDistance;
-    tile.visibility = levelVisibility;
 }
 
 
@@ -1161,16 +1154,6 @@ function drawTiles( drawer, lastDrawn ){
         }
 
         if( drawer.viewer ){
-            /**
-             * <em>- Needs documentation -</em>
-             *
-             * @event tile-drawn
-             * @memberof OpenSeadragon.Viewer
-             * @type {object}
-             * @property {OpenSeadragon.Viewer} eventSource - A reference to the Viewer which raised the event.
-             * @property {OpenSeadragon.Tile} tile
-             * @property {?Object} userData - Arbitrary subscriber-defined object.
-             */
             drawer.viewer.raiseEvent( 'tile-drawn', {
                 tile: tile
             });
