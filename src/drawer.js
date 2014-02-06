@@ -170,6 +170,8 @@ $.Drawer = function( options ) {
             //TODO
         }
     }
+
+    this.lowestLevelK = Math.floor( Math.log( this.minZoomImageRatio ) /  Math.log( 2 ) );
 };
 
 $.Drawer.prototype = /** @lends OpenSeadragon.Drawer.prototype */{
@@ -392,9 +394,9 @@ $.Drawer.prototype = /** @lends OpenSeadragon.Drawer.prototype */{
      * @method
      * @return {OpenSeadragon.Drawer} Chainable.
      */
-    update: function() {
+    update: function(bounds) {
         this.midUpdate = true;
-        draw( this );
+        draw( this, bounds );
         this.midUpdate = false;
         return this;
     },
@@ -490,7 +492,7 @@ $.Drawer.prototype = /** @lends OpenSeadragon.Drawer.prototype */{
  * how each piece of this routine contributes to the drawing process.  That's
  * why there are so many TODO's inside this function.
  */
-function draw( drawer ) {
+function draw( drawer, bounds ) {
 
     drawer.updateAgain = false;
 
@@ -501,21 +503,15 @@ function draw( drawer ) {
     var pixelRatio  = drawer.source.getPixelRatio(0);
     var deltaPixels = drawer.viewport.deltaPixelsFromPoints( pixelRatio, true);
     var zeroRatioC  = deltaPixels.x;
-    var lowestLevel = Math.max(
-        drawer.source.minLevel,
-        Math.floor(
-            Math.log( drawer.minZoomImageRatio ) /
-                Math.log( 2 )
-        )
-    );
+    var lowestLevel = Math.max( drawer.source.minLevel, drawer.lowestLevelK);
+
+    var viewportBounds = bounds;
 //    $.console.log('PR %O. DP %O. ZRC %s',pixelRatio, deltaPixels, zeroRatioC);
     var tile,
         level,
         best            = null,
         haveDrawn       = false,
         currentTime     = $.now(),
-        viewportSize    = drawer.viewport.getContainerSize(),
-        viewportBounds  = drawer.viewport.getBounds( true ),
         viewportTL      = viewportBounds.getTopLeft(),
         viewportBR      = viewportBounds.getBottomRight(),
 
@@ -538,22 +534,6 @@ function draw( drawer ) {
     while ( drawer.lastDrawn.length > 0 ) {
         tile = drawer.lastDrawn.pop();
         tile.beingDrawn = false;
-    }
-
-    //TODO
-    drawer.canvas.innerHTML   = "";
-    if ( drawer.useCanvas ) {
-        if( drawer.canvas.width  != viewportSize.x || drawer.canvas.height != viewportSize.y ) {
-            $.console.log('Resize canvas %s,%s to viewport %s for drawer %s',drawer.canvas.width,drawer.canvas.height,viewportSize.toString(),drawer.sourceIndex);
-            drawer.canvas.width  = viewportSize.x;
-            drawer.canvas.height = viewportSize.y;
-        }
-
-        // Only clear the context for the first drawer
-        // TODO : Change context clearing for some better system, like the viewer clearing it or heirarchical drawers..
-        if(drawer.sourceIndex == 0) {
-            drawer.context.clearRect( 0, 0, viewportSize.x, viewportSize.y );
-        }
     }
 
     //Change bounds for rotation
@@ -583,12 +563,13 @@ function draw( drawer ) {
         viewportBR.y = Math.min( viewportBR.y, drawer.normHeight );
     }
 
-    //$.console.log('Drawing. Lowest %s. Highest %s', lowestLevel, highestLevel);
+    $.console.log('Drawing. Lowest %s. Highest %s', lowestLevel, highestLevel);
     //TODO
     lowestLevel = Math.min( lowestLevel, highestLevel );
 
     //TODO
     var drawLevel; // FIXME: drawLevel should have a more explanatory name
+    // Loop from the highest resolution to the lowest resolution level
     for ( level = highestLevel; level >= lowestLevel; level-- ) {
         drawLevel = false;
 
@@ -1176,11 +1157,7 @@ function drawTiles( drawer, lastDrawn ){
         tile.beingDrawn = true;
 
         if( drawer.debugMode ){
-            try{
-                drawer.renderer.debug( drawer, tile, lastDrawn.length, i );
-            }catch(e){
-                $.console.error(e);
-            }
+            drawer.renderer.debug( drawer, tile, lastDrawn.length, i );
         }
 
         if( drawer.viewer ){

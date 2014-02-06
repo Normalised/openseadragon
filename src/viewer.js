@@ -959,13 +959,8 @@ $.extend( $.Viewer.prototype, $.EventSource.prototype, $.ControlDock.prototype, 
         return this.drawers[0].canRotate();
     },
     update:function() {
-
-        // This is called by the viewport when it has been rotated
-        // For now just update drawers immediately, but better to set a flag
-        // so that the drawers update on the next refresh cycle
-        for(var i=0;i<this.drawers.length;i++) {
-            this.drawers[i].update();
-        }
+        $.console.log('Viewer instance update');
+        updateDrawers(this);
     },
     needsDrawUpdate:function() {
         if(this.drawers[0]) {
@@ -1231,11 +1226,14 @@ function createDrawers(viewer, tileSources) {
 
     var useCanvas = $.supportsCanvas && viewer.useCanvas;
     // TODO : Change this to 'renderContext' or something that makes more sense
-    var canvas = $.makeNeutralElement( useCanvas ? "canvas" : "div" );
-    canvas.style.width     = "100%";
-    canvas.style.height    = "100%";
-    canvas.style.position  = "absolute";
-    $.getElement(viewer.canvas).appendChild( canvas );
+    var renderSurface = $.makeNeutralElement( useCanvas ? "canvas" : "div" );
+    renderSurface.style.width     = "100%";
+    renderSurface.style.height    = "100%";
+    renderSurface.style.position  = "absolute";
+    $.getElement(viewer.canvas).appendChild( renderSurface );
+
+    viewer.canvas = renderSurface;
+    viewer.renderingSurface = renderSurface.getContext("2d");
 
     var gridColours = ['#00FF00','#FFFF00'];
     var ox = 0;
@@ -1250,7 +1248,7 @@ function createDrawers(viewer, tileSources) {
             source:             source,
             viewport:           viewer.viewport,
             element:            viewer.canvas,
-            canvas:             canvas,
+            canvas:             renderSurface,
             overlays:           source.overlays,
             maxImageCacheCount: viewer.maxImageCacheCount,
             imageLoaderLimit:   viewer.imageLoaderLimit,
@@ -1582,8 +1580,41 @@ function updateMulti( viewer ) {
 
 function updateDrawers( viewer ) {
     //$.console.log('Update Drawers %s',viewer.drawers.length);
-    for(var i=0;i<viewer.drawers.length;i++) {
-        viewer.drawers[i].update();
+    // Because the viewer now controls the drawing context, we check here if the container has been resized and
+    // resize the canvas aka 'renderingSurface' accordingly
+
+    //TODO
+    if ( viewer.useCanvas ) {
+        var viewportSize    = viewer.viewport.getContainerSize();
+        if( viewer.canvas.width  != viewportSize.x || viewer.canvas.height != viewportSize.y ) {
+            $.console.log('Resize canvas %s,%s to viewport %s for viewer.',viewer.canvas.width,viewer.canvas.height,viewportSize.toString());
+            viewer.canvas.width  = viewportSize.x;
+            viewer.canvas.height = viewportSize.y;
+        }
+
+        // Clear the surface ready to redraw
+        viewer.renderingSurface.clearRect( 0, 0, viewportSize.x, viewportSize.y );
+    }
+
+    var viewportBounds  = viewer.viewport.getBounds( true );
+    var numSections = viewer.drawers.length;
+
+    var i = 0;
+    if(viewer.collectionLayout == $.LAYOUT.HORIZONTAL) {
+        // split the viewport into vertical slices
+        var sectionWidth = viewportBounds.width / numSections;
+        var ox = viewportBounds.x;
+        viewportBounds.width = sectionWidth;
+        for(i=0;i<numSections;i++) {
+            viewportBounds.x = ox + (i * sectionWidth);
+            viewer.drawers[i].update(viewportBounds);
+        }
+
+    } else {
+        // split the viewport into horizontal slices
+        for(i=0;i<numSections;i++) {
+            viewer.drawers[i].update(viewportBounds);
+        }
     }
 }
 
