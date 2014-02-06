@@ -98,53 +98,56 @@
             drawer.context.font = 'small-caps bold 11px arial';
             drawer.context.strokeStyle = this.debugGridColor;
             drawer.context.fillStyle = this.debugTextColor;
+
+            var tx = tile.position.x + this.offsetX;
+            var ty = tile.position.y + this.offsetY;
+
             drawer.context.strokeRect(
-                tile.position.x,
-                tile.position.y,
+                tx,ty,
                 tile.size.x,
                 tile.size.y
             );
             if( tile.x === 0 && tile.y === 0 ){
                 drawer.context.fillText(
                     "Zoom: " + drawer.viewport.getZoom(true),
-                    tile.position.x,
-                    tile.position.y - 30
+                    tx,
+                    ty - 30
                 );
                 drawer.context.fillText(
                     "Pan: " + drawer.viewport.getBounds(true).toString(),
-                    tile.position.x,
-                    tile.position.y - 20
+                    tx,
+                    ty - 20
                 );
             }
             drawer.context.fillText(
                 "Level: " + tile.level,
-                tile.position.x + 10,
-                tile.position.y + 20
+                tx + 10,
+                ty + 20
             );
             drawer.context.fillText(
                 "Column: " + tile.x,
-                tile.position.x + 10,
-                tile.position.y + 30
+                tx + 10,
+                ty + 30
             );
             drawer.context.fillText(
                 "Row: " + tile.y,
-                tile.position.x + 10,
-                tile.position.y + 40
+                tx + 10,
+                ty + 40
             );
             drawer.context.fillText(
                 "Order: " + i + " of " + count,
-                tile.position.x + 10,
-                tile.position.y + 50
+                tx + 10,
+                ty + 50
             );
             drawer.context.fillText(
                 "Size: " + tile.size.toStringRounded(),
-                tile.position.x + 10,
-                tile.position.y + 60
+                tx + 10,
+                ty + 60
             );
             drawer.context.fillText(
                 "Position: " + tile.position.toStringRounded(),
-                tile.position.x + 10,
-                tile.position.y + 70
+                tx + 10,
+                ty + 70
             );
             drawer.context.restore();
         }
