@@ -1600,14 +1600,21 @@ function updateDrawers( viewer ) {
     var numSections = viewer.drawers.length;
 
     var i = 0;
+
+    var offset = new $.Point(0,0);
     if(viewer.collectionLayout == $.LAYOUT.HORIZONTAL) {
         // split the viewport into vertical slices
         var sectionWidth = viewportBounds.width / numSections;
         var ox = viewportBounds.x;
-        viewportBounds.width = sectionWidth;
+        var drawer = null;
+        var widthDrawnSoFar = 0;
         for(i=0;i<numSections;i++) {
-            viewportBounds.x = ox + (i * sectionWidth);
-            viewer.drawers[i].update(viewportBounds);
+            drawer = viewer.drawers[i];
+            offset.x = widthDrawnSoFar;
+            drawer.setRenderOffset(viewer.viewport.pixelFromPoint(offset, true));
+            drawer.update(viewportBounds);
+            // Need to increment the amount drawn by the actual pixel size of the rendered image
+            // widthDrawnSoFar +=
         }
 
     } else {
