@@ -122,6 +122,8 @@ $.TileSourceCollection = function( tileSize, tileSources, rows, layout  ) {
         }
     }
     this.dimensions = new $.Point(w,h);
+    // TEST : Fake some dimensions to see what effect that has on other components like the viewport
+    //this.dimensions = new $.Point(2000,500);
     $.console.log('Calculated Collection Dimensions %s', this.dimensions.toString());
 };
 

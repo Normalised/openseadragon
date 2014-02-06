@@ -117,25 +117,20 @@ $.Viewport.prototype = /** @lends OpenSeadragon.Viewport.prototype */{
      * @fires OpenSeadragon.Viewer.event:reset-size
      */
     resetContentSize: function( contentSize ){
+
+        $.console.log('Reset Content Size %s', contentSize.toString());
         this.contentSize    = contentSize;
         this.contentAspectX = this.contentSize.x / this.contentSize.y;
         this.contentAspectY = this.contentSize.y / this.contentSize.x;
         this.fitWidthBounds = new $.Rect( 0, 0, 1, this.contentAspectY );
         this.fitHeightBounds = new $.Rect( 0, 0, this.contentAspectY, this.contentAspectY);
 
-        this.homeBounds = new $.Rect( 0, 0, 1, this.contentAspectY );
+        $.console.log('Fit Width Bounds %s',this.fitWidthBounds.toString());
+        $.console.log('Fit Height Bounds %s',this.fitHeightBounds.toString());
+        // Home Bounds is the same as fit width
+        this.homeBounds = this.fitWidthBounds.clone();
 
         if( this.viewer ){
-            /**
-             * Raised when the viewer's content size is reset (see {@link OpenSeadragon.Viewport#resetContentSize}).
-             *
-             * @event reset-size
-             * @memberof OpenSeadragon.Viewer
-             * @type {object}
-             * @property {OpenSeadragon.Viewer} eventSource - A reference to the Viewer which raised this event.
-             * @property {OpenSeadragon.Point} contentSize
-             * @property {?Object} userData - Arbitrary subscriber-defined object.
-             */
             this.viewer.raiseEvent( 'reset-size', {
                 contentSize: contentSize
             });
@@ -148,15 +143,14 @@ $.Viewport.prototype = /** @lends OpenSeadragon.Viewport.prototype */{
      * @function
      */
     getHomeZoom: function() {
-        var aspectFactor =
-            this.contentAspectX / this.getAspectRatio();
+        // Calculate the ratio of the content aspect ratio to the container aspect ratio
+        var aspectFactor = this.contentAspectX / this.getAspectRatio();
 
+        $.console.log('Get Home Zoom. Default %s. Aspect Factor %s',this.defaultZoomLevel,aspectFactor);
         if( this.defaultZoomLevel ){
             return this.defaultZoomLevel;
         } else {
-            return ( aspectFactor >= 1 ) ?
-                1 :
-                aspectFactor;
+            return ( aspectFactor >= 1 ) ? 1 : aspectFactor;
         }
     },
 
@@ -168,6 +162,7 @@ $.Viewport.prototype = /** @lends OpenSeadragon.Viewport.prototype */{
             width  = 1.0 / this.getHomeZoom( ),
             height = width / this.getAspectRatio();
 
+        $.console.log('Get Home Bounds %O. Center %s. Size %s,%s',this.homeBounds,center.toString(),width,height);
         return new $.Rect(
             center.x - ( width / 2.0 ),
             center.y - ( height / 2.0 ),
@@ -177,22 +172,13 @@ $.Viewport.prototype = /** @lends OpenSeadragon.Viewport.prototype */{
     },
 
     /**
+     * Fit bounds
      * @function
      * @param {Boolean} immediately
      * @fires OpenSeadragon.Viewer.event:home
      */
     goHome: function( immediately ) {
         if( this.viewer ){
-            /**
-             * Raised when the "home" operation occurs (see {@link OpenSeadragon.Viewport#goHome}).
-             *
-             * @event home
-             * @memberof OpenSeadragon.Viewer
-             * @type {object}
-             * @property {OpenSeadragon.Viewer} eventSource - A reference to the Viewer which raised this event.
-             * @property {Boolean} immediately
-             * @property {?Object} userData - Arbitrary subscriber-defined object.
-             */
             this.viewer.raiseEvent( 'home', {
                 immediately: immediately
             });
@@ -694,17 +680,6 @@ $.Viewport.prototype = /** @lends OpenSeadragon.Viewport.prototype */{
         }
 
         if( this.viewer ){
-            /**
-             * Raised when the viewer is resized (see {@link OpenSeadragon.Viewport#resize}).
-             *
-             * @event resize
-             * @memberof OpenSeadragon.Viewer
-             * @type {object}
-             * @property {OpenSeadragon.Viewer} eventSource - A reference to the Viewer which raised this event.
-             * @property {OpenSeadragon.Point} newContainerSize
-             * @property {Boolean} maintain
-             * @property {?Object} userData - Arbitrary subscriber-defined object.
-             */
             this.viewer.raiseEvent( 'resize', {
                 newContainerSize: newContainerSize,
                 maintain: maintain
@@ -850,7 +825,8 @@ $.Viewport.prototype = /** @lends OpenSeadragon.Viewport.prototype */{
     viewportToImageCoordinates: function( viewerX, viewerY ) {
         if ( arguments.length == 1 ) {
             //they passed a point instead of individual components
-            return this.viewportToImageCoordinates( viewerX.x, viewerX.y );
+            var point = viewerX;
+            return new $.Point( point.x * this.contentSize.x, point.y * this.contentSize.y * this.contentAspectX );
         }
         return new $.Point( viewerX * this.contentSize.x, viewerY * this.contentSize.y * this.contentAspectX );
     },
@@ -868,7 +844,9 @@ $.Viewport.prototype = /** @lends OpenSeadragon.Viewport.prototype */{
     imageToViewportCoordinates: function( imageX, imageY ) {
         if ( arguments.length == 1 ) {
             //they passed a point instead of individual components
-            return this.imageToViewportCoordinates( imageX.x, imageX.y );
+            var point = imageX;
+            // TODO : Add brackets to the y calculation to make it explicit because (A / B) / C != A / (B / C)
+            return new $.Point( point.x / this.contentSize.x, point.y / this.contentSize.y / this.contentAspectX );
         }
         return new $.Point( imageX / this.contentSize.x, imageY / this.contentSize.y / this.contentAspectX );
     },
