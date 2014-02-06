@@ -53,7 +53,8 @@ module.exports = function(grunt) {
             "src/viewport.js",
             "src/TileCanvasRenderer.js",
             "src/TileHtmlRenderer.js",
-            "src/TileSourceFactory.js"
+            "src/TileSourceFactory.js",
+            "src/ImageLoader.js"
         ];
 
     // ----------

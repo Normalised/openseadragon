@@ -90,11 +90,11 @@ $.Tile = function(level, x, y, bounds, exists, url) {
      */
     this.loaded  = false;
     /**
-     * Is this tile loading?
-     * @member {Boolean} loading
+     * Image loading promise. Use loading.isPending() to see if its still loading
+     * @member {Q.Promise} loading
      * @memberof OpenSeadragon.Tile#
      */
-    this.loading = false;
+    this.loading = null;
 
     /**
      * The HTML div element for this tile
@@ -144,7 +144,7 @@ $.Tile = function(level, x, y, bounds, exists, url) {
      * @member {Number} opacity
      * @memberof OpenSeadragon.Tile#
      */
-    this.opacity    = null;
+    this.opacity    = 1;
     /**
      * The distance of this tile to the viewport center.
      * @member {Number} distance
@@ -205,7 +205,7 @@ $.Tile.prototype = /** @lends OpenSeadragon.Tile.prototype */{
 
         this.image      = null;
         this.loaded     = false;
-        this.loading    = false;
+        this.loading    = null;
     }
 };
 

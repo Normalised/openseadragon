@@ -189,12 +189,20 @@ $.TileSource = function( width, height, tileSize, tileOverlap, minLevel, maxLeve
     }
 
 
+    // Precompute the inverse tile size
+    this.oneOverTileSize = 1.0 / this.tileSize;
 };
 
 
 $.TileSource.prototype = /** @lends OpenSeadragon.TileSource.prototype */{
 
     /**
+     * The level scale is a mapping from a 'level' to an inverse power of 2.
+     * e.g.
+     * max      -> 1
+     * max - 1  -> 0.5
+     * max - 2  -> 0.25
+     *
      * @function
      * @param {Number} level
      */
@@ -220,8 +228,8 @@ $.TileSource.prototype = /** @lends OpenSeadragon.TileSource.prototype */{
      */
     getNumTiles: function( level ) {
         var scale = this.getLevelScale( level ),
-            x = Math.ceil( scale * this.dimensions.x / this.tileSize ),
-            y = Math.ceil( scale * this.dimensions.y / this.tileSize );
+            x = Math.ceil( scale * this.dimensions.x * this.oneOverTileSize ),
+            y = Math.ceil( scale * this.dimensions.y * this.oneOverTileSize );
 
         return new $.Point( x, y );
     },
@@ -254,7 +262,7 @@ $.TileSource.prototype = /** @lends OpenSeadragon.TileSource.prototype */{
      */
     getClosestLevel: function( rect ) {
         var i,
-            tilesPerSide = Math.floor( Math.max( rect.x, rect.y ) / this.tileSize ),
+            tilesPerSide = Math.floor( Math.max( rect.x, rect.y ) * this.oneOverTileSize ),
             tiles;
         for( i = this.minLevel; i < this.maxLevel; i++ ){
             tiles = this.getNumTiles( i );
@@ -272,8 +280,8 @@ $.TileSource.prototype = /** @lends OpenSeadragon.TileSource.prototype */{
      */
     getTileAtPoint: function( level, point ) {
         var pixel = point.times( this.dimensions.x ).times( this.getLevelScale(level ) ),
-            tx = Math.floor( pixel.x / this.tileSize ),
-            ty = Math.floor( pixel.y / this.tileSize );
+            tx = Math.floor( pixel.x * this.oneOverTileSize ),
+            ty = Math.floor( pixel.y * this.oneOverTileSize );
 
         return new $.Point( tx, ty );
     },

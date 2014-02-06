@@ -222,7 +222,7 @@ $.Viewer = function( options ) {
     this.keyboardCommandArea  = $.makeNeutralElement( "textarea" );
 
     this.configureElement(this.canvas, "openseadragon-canvas", true);
-    this.configureElement(this.container, "openseadragon-container", false, {textAlign:"left"});
+    this.configureElement(this.container, "openseadragon-container", false, {textAlign:"left",'background-color':'black'});
     this.configureElement(this.keyboardCommandArea, "keyboard-command-area", true);
 
     this.container.insertBefore( this.canvas, this.container.firstChild );

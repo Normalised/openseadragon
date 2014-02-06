@@ -396,78 +396,9 @@ $.Drawer.prototype = /** @lends OpenSeadragon.Drawer.prototype */{
      */
     update: function(bounds) {
         this.midUpdate = true;
-        draw( this, bounds );
+        this.draw( bounds );
         this.midUpdate = false;
         return this;
-    },
-
-    /**
-     * Used internally to load images when required.  May also be used to
-     * preload a set of images so the browser will have them available in
-     * the local cache to optimize user experience in certain cases. Because
-     * the number of parallel image loads is configurable, if too many images
-     * are currently being loaded, the request will be ignored.  Since by
-     * default drawer.imageLoaderLimit is 0, the native browser parallel
-     * image loading policy will be used.
-     * @method
-     * @param {String} src - The url of the image to load.
-     * @param {Function} callback - The function that will be called with the
-     *      Image object as the only parameter if it was loaded successfully.
-     *      If an error occured, or the request timed out or was aborted,
-     *      the parameter is null instead.
-     * @return {Boolean} loading - Whether the request was submitted or ignored
-     *      based on OpenSeadragon.DEFAULT_SETTINGS.imageLoaderLimit.
-     */
-    loadImage: function( src, callback ) {
-        var _this = this,
-            loading = false,
-            image,
-            jobid,
-            complete;
-
-        if ( !this.imageLoaderLimit ||
-              this.downloading < this.imageLoaderLimit ) {
-
-            this.downloading++;
-
-            image = new Image();
-            image.crossOrigin = 'Anonymous';
-
-            complete = function( imagesrc, resultingImage ){
-                _this.downloading--;
-                if (typeof ( callback ) == "function") {
-                    try {
-                        callback( resultingImage );
-                    } catch ( e ) {
-                        $.console.error(
-                            "%s while executing %s callback: %s",
-                            e.name,
-                            src,
-                            e.message,
-                            e
-                        );
-                    }
-                }
-            };
-
-            image.onload = function(){
-                finishLoadingImage( image, complete, true, jobid );
-            };
-
-            image.onabort = image.onerror = function(){
-                finishLoadingImage( image, complete, false, jobid );
-            };
-
-            jobid = window.setTimeout( function(){
-                finishLoadingImage( image, complete, false, jobid );
-            }, this.timeout );
-
-            loading   = true;
-//            $.console.log('Loading image %s',src);
-            image.src = src;
-        }
-
-        return loading;
     },
 
     /**
@@ -482,166 +413,281 @@ $.Drawer.prototype = /** @lends OpenSeadragon.Drawer.prototype */{
         // dont draw at 0,0
 //        this.renderer.offsetX = offset.x;
 //        this.renderer.offsetY = offset.y;
+    },
+    draw:function(bounds ) {
+
+        this.updateAgain = false;
+
+        if( this.viewer ){
+            this.viewer.raiseEvent( 'update-viewport', {} );
+        }
+
+        var tileSource = this.source;
+        var pixelRatio  = tileSource.getPixelRatio(0);
+        var deltaPixels = this.viewport.deltaPixelsFromPoints( pixelRatio, true);
+        var zeroRatioC  = deltaPixels.x;
+        var lowestLevel = Math.max( this.source.minLevel, this.lowestLevelK);
+
+        var viewportBounds = bounds;
+        //$.console.log('PR %O. DP %O. ZRC %s',pixelRatio, deltaPixels, zeroRatioC);
+        var tile,
+            currentTime     = $.now(),
+            viewportTL      = viewportBounds.getTopLeft(),
+            viewportBR      = viewportBounds.getBottomRight(),
+
+            highestLevel    = Math.min(
+                Math.abs(tileSource.maxLevel),
+                Math.abs(Math.floor(
+                    Math.log( zeroRatioC / this.minPixelRatio ) /
+                        Math.log( 2 )
+                ))
+            ),
+            degrees         = this.viewport.degrees;
+
+        //TODO
+        while ( this.lastDrawn.length > 0 ) {
+            tile = this.lastDrawn.pop();
+            tile.beingDrawn = false;
+        }
+
+        //Change bounds for rotation
+        if (degrees === 90 || degrees === 270) {
+            var rotatedBounds = viewportBounds.rotate( degrees );
+            viewportTL = rotatedBounds.getTopLeft();
+            viewportBR = rotatedBounds.getBottomRight();
+        }
+
+        //Don't draw if completely outside of the viewport
+        if  ( !this.wrapHorizontal &&
+            ( viewportBR.x < 0 || viewportTL.x > 1 ) ) {
+            return;
+        } else if
+            ( !this.wrapVertical &&
+            ( viewportBR.y < 0 || viewportTL.y > this.normHeight ) ) {
+            return;
+        }
+
+        // Constrain viewport within bounds
+        if ( !this.wrapHorizontal ) {
+            viewportTL.x = Math.max( viewportTL.x, 0 );
+            viewportBR.x = Math.min( viewportBR.x, 1 );
+        }
+        if ( !this.wrapVertical ) {
+            viewportTL.y = Math.max( viewportTL.y, 0 );
+            viewportBR.y = Math.min( viewportBR.y, this.normHeight );
+        }
+
+        lowestLevel = Math.min( lowestLevel, highestLevel );
+
+        var best = this.updateVisibilityAndLevels(lowestLevel, highestLevel, viewportTL, viewportBR, currentTime);
+        this.drawTiles();
+        drawOverlays( this.viewport, this.overlays, this.container );
+
+        //TODO
+        if ( best ) {
+            this.loadTile( best, currentTime );
+            // because we haven't finished drawing, so
+            this.updateAgain = true;
+        }
+
+    },
+    loadTile:function(tile, time) {
+        if(tile.loading) {
+            return;
+        }
+        var promise = $.ImageLoader.loadImage(tile.url);
+        $.console.log('Load Tile %O : %s',promise,tile.url);
+        tile.loading = promise;
+        var _this = this;
+        promise.then(function(image){
+            $.console.log('Tile Loaded %s',tile.url);
+            _this.onTileLoad( tile, time, image );
+        });
+    },
+    updateVisibilityAndLevels:function(lowestLevel, highestLevel, viewportTL, viewportBR, currentTime) {
+        //TODO
+        var level,
+            best = null,
+            haveDrawn       = false,
+            renderPixelRatioC,
+            renderPixelRatioT,
+            zeroRatioT,
+            optimalRatio,
+            levelOpacity,
+            levelVisibility;
+
+        var drawLevel; // FIXME: drawLevel should have a more explanatory name
+        // Loop from the highest resolution to the lowest resolution level
+        for ( level = highestLevel; level >= lowestLevel; level-- ) {
+            drawLevel = false;
+
+            //Avoid calculations for draw if we have already drawn this
+            renderPixelRatioC = this.viewport.deltaPixelsFromPoints(
+                this.source.getPixelRatio( level ),
+                true
+            ).x;
+
+            if ( ( !haveDrawn && renderPixelRatioC >= this.minPixelRatio ) ||
+                ( level == lowestLevel ) ) {
+                drawLevel = true;
+                haveDrawn = true;
+            } else if ( !haveDrawn ) {
+                continue;
+            }
+
+            //Perform calculations for draw if we haven't drawn this
+            renderPixelRatioT = this.viewport.deltaPixelsFromPoints(
+                this.source.getPixelRatio( level ),
+                false
+            ).x;
+
+            zeroRatioT      = this.viewport.deltaPixelsFromPoints(
+                this.source.getPixelRatio(
+                    Math.max(
+                        this.source.getClosestLevel( this.viewport.containerSize ) - 1,
+                        0
+                    )
+                ),
+                false
+            ).x;
+
+            optimalRatio    = this.immediateRender ? 1 : zeroRatioT;
+
+            levelOpacity    = Math.min( 1, ( renderPixelRatioC - 0.5 ) / 0.5 );
+
+            levelVisibility = optimalRatio / Math.abs( optimalRatio - renderPixelRatioT );
+
+            //TODO
+            best = updateLevel(
+                this,
+                haveDrawn,
+                drawLevel,
+                level,
+                levelOpacity,
+                levelVisibility,
+                viewportTL,
+                viewportBR,
+                currentTime,
+                best
+            );
+
+            //TODO
+            if ( providesCoverage( this.coverage, level ) ) {
+                break;
+            }
+        }
+        return best;
+    },
+    drawTiles:function(){
+        var i,
+            tile;
+
+        for ( i = this.lastDrawn.length - 1; i >= 0; i-- ) {
+            tile = this.lastDrawn[ i ];
+
+            if ( this.useCanvas ) {
+
+                // TODO do this in a more performant way
+                // specifically, don't save,rotate,restore every time we draw a tile
+                if( this.viewport.degrees !== 0 ) {
+                    offsetForRotation( tile, this.canvas, this.context, this.viewport.degrees );
+                    this.renderer.render(tile, this.context);
+                    restoreRotationChanges( tile, this.canvas, this.context );
+                } else {
+                    this.renderer.render(tile, this.context);
+                }
+            } else {
+                this.renderer.render(tile, this.canvas);
+            }
+
+            tile.beingDrawn = true;
+
+            if( this.debugMode ){
+                this.renderer.debug( this, tile, this.lastDrawn.length, i );
+            }
+
+            if( this.viewer ){
+                this.viewer.raiseEvent( 'tile-drawn', {
+                    tile: tile
+                });
+            }
+        }
+    },
+    onTileLoad:function( tile, time, image ) {
+
+        $.console.log('On Tile Load %O', tile);
+        var insertionIndex,
+            cutoff,
+            worstTile,
+            worstTime,
+            worstLevel,
+            worstTileIndex,
+            prevTile,
+            prevTime,
+            prevLevel,
+            i;
+
+        tile.loading = null;
+
+        if ( this.midUpdate ) {
+            $.console.warn( "Tile load callback in middle of drawing routine." );
+            return;
+        } else if ( !image ) {
+            $.console.log( "Tile %s failed to load: %s", tile, tile.url );
+            if( !this.debugMode ){
+                tile.exists = false;
+                return;
+            }
+        } else if ( time < this.lastResetTime ) {
+            $.console.log( "Ignoring tile %s loaded before reset: %s", tile, tile.url );
+            return;
+        }
+
+        tile.loaded = true;
+        tile.image  = image;
+
+        insertionIndex = this.tilesLoaded.length;
+
+        if ( this.tilesLoaded.length >= this.maxImageCacheCount ) {
+            cutoff = Math.ceil( Math.log( this.source.tileSize ) / Math.log( 2 ) );
+
+            worstTile       = null;
+            worstTileIndex  = -1;
+
+            for ( i = this.tilesLoaded.length - 1; i >= 0; i-- ) {
+                prevTile = this.tilesLoaded[ i ];
+
+                if ( prevTile.level <= cutoff || prevTile.beingDrawn ) {
+                    continue;
+                } else if ( !worstTile ) {
+                    worstTile       = prevTile;
+                    worstTileIndex  = i;
+                    continue;
+                }
+
+                prevTime    = prevTile.lastTouchTime;
+                worstTime   = worstTile.lastTouchTime;
+                prevLevel   = prevTile.level;
+                worstLevel  = worstTile.level;
+
+                if ( prevTime < worstTime ||
+                    ( prevTime == worstTime && prevLevel > worstLevel ) ) {
+                    worstTile       = prevTile;
+                    worstTileIndex  = i;
+                }
+            }
+
+            if ( worstTile && worstTileIndex >= 0 ) {
+                worstTile.unload();
+                this.renderer.unload(worstTile);
+                insertionIndex = worstTileIndex;
+            }
+        }
+
+        this.tilesLoaded[ insertionIndex ] = tile;
+        this.updateAgain = true;
     }
 };
-
-/**
- * @private
- * @inner
- * Pretty much every other line in this needs to be documented so it's clear
- * how each piece of this routine contributes to the drawing process.  That's
- * why there are so many TODO's inside this function.
- */
-function draw( drawer, bounds ) {
-
-    drawer.updateAgain = false;
-
-    if( drawer.viewer ){
-        drawer.viewer.raiseEvent( 'update-viewport', {} );
-    }
-
-    var tileSource = drawer.source;
-    var pixelRatio  = tileSource.getPixelRatio(0);
-    var deltaPixels = drawer.viewport.deltaPixelsFromPoints( pixelRatio, true);
-    var zeroRatioC  = deltaPixels.x;
-    var lowestLevel = Math.max( drawer.source.minLevel, drawer.lowestLevelK);
-
-    var viewportBounds = bounds;
-//    $.console.log('PR %O. DP %O. ZRC %s',pixelRatio, deltaPixels, zeroRatioC);
-    var tile,
-        level,
-        best            = null,
-        haveDrawn       = false,
-        currentTime     = $.now(),
-        viewportTL      = viewportBounds.getTopLeft(),
-        viewportBR      = viewportBounds.getBottomRight(),
-
-        highestLevel    = Math.min(
-            Math.abs(tileSource.maxLevel),
-            Math.abs(Math.floor(
-                Math.log( zeroRatioC / drawer.minPixelRatio ) /
-                Math.log( 2 )
-            ))
-        ),
-        degrees         = drawer.viewport.degrees,
-        renderPixelRatioC,
-        renderPixelRatioT,
-        zeroRatioT,
-        optimalRatio,
-        levelOpacity,
-        levelVisibility;
-
-    //TODO
-    while ( drawer.lastDrawn.length > 0 ) {
-        tile = drawer.lastDrawn.pop();
-        tile.beingDrawn = false;
-    }
-
-    //Change bounds for rotation
-    if (degrees === 90 || degrees === 270) {
-        var rotatedBounds = viewportBounds.rotate( degrees );
-        viewportTL = rotatedBounds.getTopLeft();
-        viewportBR = rotatedBounds.getBottomRight();
-    }
-
-    //Don't draw if completely outside of the viewport
-    if  ( !drawer.wrapHorizontal &&
-        ( viewportBR.x < 0 || viewportTL.x > 1 ) ) {
-        return;
-    } else if
-        ( !drawer.wrapVertical &&
-        ( viewportBR.y < 0 || viewportTL.y > drawer.normHeight ) ) {
-        return;
-    }
-
-    // Constrain viewport within bounds
-    if ( !drawer.wrapHorizontal ) {
-        viewportTL.x = Math.max( viewportTL.x, 0 );
-        viewportBR.x = Math.min( viewportBR.x, 1 );
-    }
-    if ( !drawer.wrapVertical ) {
-        viewportTL.y = Math.max( viewportTL.y, 0 );
-        viewportBR.y = Math.min( viewportBR.y, drawer.normHeight );
-    }
-
-//    $.console.log('Drawing. Lowest %s. Highest %s', lowestLevel, highestLevel);
-    //TODO
-    lowestLevel = Math.min( lowestLevel, highestLevel );
-
-    //TODO
-    var drawLevel; // FIXME: drawLevel should have a more explanatory name
-    // Loop from the highest resolution to the lowest resolution level
-    for ( level = highestLevel; level >= lowestLevel; level-- ) {
-        drawLevel = false;
-
-        //Avoid calculations for draw if we have already drawn this
-        renderPixelRatioC = drawer.viewport.deltaPixelsFromPoints(
-            tileSource.getPixelRatio( level ),
-            true
-        ).x;
-
-        if ( ( !haveDrawn && renderPixelRatioC >= drawer.minPixelRatio ) ||
-             ( level == lowestLevel ) ) {
-            drawLevel = true;
-            haveDrawn = true;
-        } else if ( !haveDrawn ) {
-            continue;
-        }
-
-        //Perform calculations for draw if we haven't drawn this
-        renderPixelRatioT = drawer.viewport.deltaPixelsFromPoints(
-            tileSource.getPixelRatio( level ),
-            false
-        ).x;
-
-        zeroRatioT      = drawer.viewport.deltaPixelsFromPoints(
-            tileSource.getPixelRatio(
-                Math.max(
-                    tileSource.getClosestLevel( drawer.viewport.containerSize ) - 1,
-                    0
-                )
-            ),
-            false
-        ).x;
-
-        optimalRatio    = drawer.immediateRender ? 1 : zeroRatioT;
-
-        levelOpacity    = Math.min( 1, ( renderPixelRatioC - 0.5 ) / 0.5 );
-
-        levelVisibility = optimalRatio / Math.abs( optimalRatio - renderPixelRatioT );
-
-        //TODO
-        best = updateLevel(
-            drawer,
-            haveDrawn,
-            drawLevel,
-            level,
-            levelOpacity,
-            levelVisibility,
-            viewportTL,
-            viewportBR,
-            currentTime,
-            best
-        );
-
-        //TODO
-        if ( providesCoverage( drawer.coverage, level ) ) {
-            break;
-        }
-    }
-
-    //TODO
-    drawTiles( drawer, drawer.lastDrawn );
-    drawOverlays( drawer.viewport, drawer.overlays, drawer.container );
-
-    //TODO
-    if ( best ) {
-        loadTile( drawer, best, currentTime );
-        // because we haven't finished drawing, so
-        drawer.updateAgain = true;
-    }
-
-}
 
 
 function updateLevel( drawer, haveDrawn, drawLevel, level, levelOpacity, levelVisibility, viewportTL, viewportBR, currentTime, best ){
@@ -742,26 +788,19 @@ function updateTile( drawer, drawLevel, haveDrawn, x, y, level, levelOpacity, le
     }
 
     tile.visibility = levelVisibility;
-    positionTile(
-        tile,
-        drawer.source.tileOverlap,
-        drawer.viewport,
-        viewportCenter);
+    positionTile( tile, drawer.source.tileOverlap, drawer.viewport, viewportCenter);
 
     if ( tile.loaded ) {
-        var needsUpdate = blendTile(
-            drawer,
-            tile,
-            x, y,
-            level,
-            levelOpacity,
-            currentTime
-        );
-
-        if ( needsUpdate ) {
-            drawer.updateAgain = true;
+        if(drawer.blendTime) {
+            if(blendTile( drawer, tile, x, y, level, levelOpacity, currentTime )) {
+                drawer.updateAgain = true;
+            }
+        } else {
+            showTile(drawer, tile, x, y, level);
         }
-    } else if ( tile.loading ) {
+
+    } else if ( tile.loading && !tile.loading.isFulfilled() ) {
+        $.console.log("Tile is loading %s", tile.url);
         // the tile is already in the download queue
         // thanks josh1093 for finally translating this typo
     } else {
@@ -805,90 +844,6 @@ function getTile( x, y, level, tileSource, tilesMatrix, time, numTiles, normHeig
     return tile;
 }
 
-
-function loadTile( drawer, tile, time ) {
-//    $.console.log('Load Tile %O %O %s', drawer, tile, time);
-    tile.loading = drawer.loadImage( tile.url,
-        function( image ){
-            onTileLoad( drawer, tile, time, image );
-        }
-    );
-
-}
-
-function onTileLoad( drawer, tile, time, image ) {
-    var insertionIndex,
-        cutoff,
-        worstTile,
-        worstTime,
-        worstLevel,
-        worstTileIndex,
-        prevTile,
-        prevTime,
-        prevLevel,
-        i;
-
-    tile.loading = false;
-
-    if ( drawer.midUpdate ) {
-        $.console.warn( "Tile load callback in middle of drawing routine." );
-        return;
-    } else if ( !image ) {
-        $.console.log( "Tile %s failed to load: %s", tile, tile.url );
-        if( !drawer.debugMode ){
-            tile.exists = false;
-            return;
-        }
-    } else if ( time < drawer.lastResetTime ) {
-        $.console.log( "Ignoring tile %s loaded before reset: %s", tile, tile.url );
-        return;
-    }
-
-    tile.loaded = true;
-    tile.image  = image;
-
-    insertionIndex = drawer.tilesLoaded.length;
-
-    if ( drawer.tilesLoaded.length >= drawer.maxImageCacheCount ) {
-        cutoff = Math.ceil( Math.log( drawer.source.tileSize ) / Math.log( 2 ) );
-
-        worstTile       = null;
-        worstTileIndex  = -1;
-
-        for ( i = drawer.tilesLoaded.length - 1; i >= 0; i-- ) {
-            prevTile = drawer.tilesLoaded[ i ];
-
-            if ( prevTile.level <= cutoff || prevTile.beingDrawn ) {
-                continue;
-            } else if ( !worstTile ) {
-                worstTile       = prevTile;
-                worstTileIndex  = i;
-                continue;
-            }
-
-            prevTime    = prevTile.lastTouchTime;
-            worstTime   = worstTile.lastTouchTime;
-            prevLevel   = prevTile.level;
-            worstLevel  = worstTile.level;
-
-            if ( prevTime < worstTime ||
-               ( prevTime == worstTime && prevLevel > worstLevel ) ) {
-                worstTile       = prevTile;
-                worstTileIndex  = i;
-            }
-        }
-
-        if ( worstTile && worstTileIndex >= 0 ) {
-            worstTile.unload();
-            drawer.renderer.unload(worstTile);
-            insertionIndex = worstTileIndex;
-        }
-    }
-
-    drawer.tilesLoaded[ insertionIndex ] = tile;
-    drawer.updateAgain = true;
-}
-
 /**
  * Called every render update.
  *
@@ -919,6 +874,13 @@ function positionTile( tile, overlap, viewport, viewportCenter ){
     tile.distance   = tileDistance;
 }
 
+function showTile( drawer, tile, x, y, level) {
+    // Tile opacity is now set to 1 as default rather than null
+    // This means we don't have to force it here
+    //    tile.opacity = 1;
+    drawer.lastDrawn.push( tile );
+    setCoverage( drawer.coverage, level, x, y, true );
+}
 
 function blendTile( drawer, tile, x, y, level, levelOpacity, currentTime ){
     var blendTimeMillis = 1000 * drawer.blendTime,
@@ -1089,23 +1051,6 @@ function compareTiles( previousBest, tile ) {
     return previousBest;
 }
 
-function finishLoadingImage( image, callback, successful, jobid ){
-
-//    $.console.log('Image Loaded %O',image);
-    image.onload = null;
-    image.onabort = null;
-    image.onerror = null;
-
-    if ( jobid ) {
-        window.clearTimeout( jobid );
-    }
-    $.requestAnimationFrame( function() {
-        callback( image.src, successful ? image : null);
-    });
-
-}
-
-
 function drawOverlays( viewport, overlays, container ){
     var i,
         length = overlays.length;
@@ -1125,42 +1070,6 @@ function drawOverlay( viewport, overlay, container ){
         true
     );
     overlay.drawHTML( container, viewport );
-}
-
-function drawTiles( drawer, lastDrawn ){
-    var i,
-        tile;
-
-    for ( i = lastDrawn.length - 1; i >= 0; i-- ) {
-        tile = lastDrawn[ i ];
-
-        if ( drawer.useCanvas ) {
-
-            // TODO do this in a more performant way
-            // specifically, don't save,rotate,restore every time we draw a tile
-            if( drawer.viewport.degrees !== 0 ) {
-                offsetForRotation( tile, drawer.canvas, drawer.context, drawer.viewport.degrees );
-                drawer.renderer.render(tile, drawer.context);
-                restoreRotationChanges( tile, drawer.canvas, drawer.context );
-            } else {
-                drawer.renderer.render(tile, drawer.context);
-            }
-        } else {
-            drawer.renderer.render(tile, drawer.canvas);
-        }
-
-        tile.beingDrawn = true;
-
-        if( drawer.debugMode ){
-            drawer.renderer.debug( drawer, tile, lastDrawn.length, i );
-        }
-
-        if( drawer.viewer ){
-            drawer.viewer.raiseEvent( 'tile-drawn', {
-                tile: tile
-            });
-        }
-    }
 }
 
 function offsetForRotation( tile, canvas, context, degrees ){
