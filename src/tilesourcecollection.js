@@ -117,8 +117,14 @@ $.TileSourceCollection = function( tileSize, tileSources, rows, layout  ) {
         ts = this.tileSources[i];
         if(isHorizontal) {
             w += ts.dimensions.x;
+            if(ts.dimensions.y > h) {
+                h = ts.dimensions.y;
+            }
         } else {
             h += ts.dimensions.y;
+            if(ts.dimensions.x > w) {
+                w = ts.dimensions.x;
+            }
         }
     }
     this.dimensions = new $.Point(w,h);
