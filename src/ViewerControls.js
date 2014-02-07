@@ -50,6 +50,7 @@
         this.zooming = false;
         this.lastZoomTime = 0;
         this.zoomFactor = 1;
+        this.zoomPerSecond = viewer.zoomPerSecond;
     };
 
     $.ViewerControls.prototype = {
