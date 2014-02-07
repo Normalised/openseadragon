@@ -828,16 +828,6 @@ window.OpenSeadragon = window.OpenSeadragon || function( options ){
             debugGridColor:         '#437AB2'
         },
 
-
-        /**
-         * TODO: get rid of this.  I can't see how it's required at all.  Looks
-         *       like an early legacy code artifact.
-         * @static
-         * @ignore
-         */
-        SIGNAL: "----seadragon----",
-
-
         /**
          * Returns a function which invokes the method as if it were a method belonging to the object.
          * @function

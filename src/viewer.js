@@ -69,27 +69,6 @@ $.Viewer = function( options ) {
         i;
 
 
-    //backward compatibility for positional args while prefering more
-    //idiomatic javascript options object as the only argument
-    if( !$.isPlainObject( options ) ){
-        options = {
-            id:                 args[ 0 ],
-            xmlPath:            args.length > 1 ? args[ 1 ] : undefined,
-            prefixUrl:          args.length > 2 ? args[ 2 ] : undefined,
-            controls:           args.length > 3 ? args[ 3 ] : undefined,
-            overlays:           args.length > 4 ? args[ 4 ] : undefined,
-            overlayControls:    args.length > 5 ? args[ 5 ] : undefined
-        };
-    }
-
-    //options.config and the general config argument are deprecated
-    //in favor of the more direct specification of optional settings
-    //being pass directly on the options object
-    if ( options.config ){
-        $.extend( true, options, options.config );
-        delete options.config;
-    }
-
     //Public properties
     //Allow the options object to override global defaults
     $.extend( true, this, {

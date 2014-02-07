@@ -44,25 +44,6 @@
  */
 $.Viewport = function( options ) {
 
-    //backward compatibility for positional args while prefering more
-    //idiomatic javascript options object as the only argument
-    var args = arguments;
-    if(  args.length && args[ 0 ] instanceof $.Point ){
-        options = {
-            containerSize:  args[ 0 ],
-            contentSize:    args[ 1 ],
-            config:         args[ 2 ]
-        };
-    }
-
-    //options.config and the general config argument are deprecated
-    //in favor of the more direct specification of optional settings
-    //being passed directly on the options object
-    if ( options.config ){
-        $.extend( true, options, options.config );
-        delete options.config;
-    }
-
     $.extend( true, this, {
 
         //required settings
@@ -383,16 +364,6 @@ $.Viewport.prototype = /** @lends OpenSeadragon.Viewport.prototype */{
         }
 
         if( this.viewer ){
-            /**
-             * Raised when the viewport constraints are applied (see {@link OpenSeadragon.Viewport#applyConstraints}).
-             *
-             * @event constrain
-             * @memberof OpenSeadragon.Viewer
-             * @type {object}
-             * @property {OpenSeadragon.Viewer} eventSource - A reference to the Viewer which raised this event.
-             * @property {Boolean} immediately
-             * @property {?Object} userData - Arbitrary subscriber-defined object.
-             */
             this.viewer.raiseEvent( 'constrain', {
                 immediately: immediately
             });
@@ -548,17 +519,6 @@ $.Viewport.prototype = /** @lends OpenSeadragon.Viewport.prototype */{
         }
 
         if( this.viewer ){
-            /**
-             * Raised when the viewport is panned (see {@link OpenSeadragon.Viewport#panBy} and {@link OpenSeadragon.Viewport#panTo}).
-             *
-             * @event pan
-             * @memberof OpenSeadragon.Viewer
-             * @type {object}
-             * @property {OpenSeadragon.Viewer} eventSource - A reference to the Viewer which raised this event.
-             * @property {OpenSeadragon.Point} center
-             * @property {Boolean} immediately
-             * @property {?Object} userData - Arbitrary subscriber-defined object.
-             */
             this.viewer.raiseEvent( 'pan', {
                 center: center,
                 immediately: immediately
@@ -604,18 +564,6 @@ $.Viewport.prototype = /** @lends OpenSeadragon.Viewport.prototype */{
         }
 
         if( this.viewer ){
-            /**
-             * Raised when the viewport zoom level changes (see {@link OpenSeadragon.Viewport#zoomBy} and {@link OpenSeadragon.Viewport#zoomTo}).
-             *
-             * @event zoom
-             * @memberof OpenSeadragon.Viewer
-             * @type {object}
-             * @property {OpenSeadragon.Viewer} eventSource - A reference to the Viewer which raised this event.
-             * @property {Number} zoom
-             * @property {OpenSeadragon.Point} refPoint
-             * @property {Boolean} immediately
-             * @property {?Object} userData - Arbitrary subscriber-defined object.
-             */
             this.viewer.raiseEvent( 'zoom', {
                 zoom: zoom,
                 refPoint: refPoint,
@@ -698,23 +646,9 @@ $.Viewport.prototype = /** @lends OpenSeadragon.Viewport.prototype */{
    */
   resizeToFit: function( newContainerSize, maintain, newBounds ) {
 
-    this.containerSize = new $.Point(
-        newContainerSize.x,
-        newContainerSize.y
-    );
+    this.updateContainerSize(newContainerSize);
 
     if( this.viewer ){
-      /**
-       * Raised when the viewer is resized (see {@link OpenSeadragon.Viewport#resize}).
-       *
-       * @event resize
-       * @memberof OpenSeadragon.Viewer
-       * @type {object}
-       * @property {OpenSeadragon.Viewer} eventSource - A reference to the Viewer which raised this event.
-       * @property {OpenSeadragon.Point} newContainerSize
-       * @property {Boolean} maintain
-       * @property {?Object} userData - Arbitrary subscriber-defined object.
-       */
       this.viewer.raiseEvent( 'resize', {
         newContainerSize: newContainerSize,
         maintain: maintain
