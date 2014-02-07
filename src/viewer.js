@@ -1202,19 +1202,16 @@ function createDrawers(viewer, tileSources) {
     var drawer = null;
 
     var useCanvas = $.supportsCanvas && viewer.useCanvas;
-    // TODO : Change this to 'renderContext' or something that makes more sense
-    var renderSurface = $.makeNeutralElement( useCanvas ? "canvas" : "div" );
-    renderSurface.style.width     = "100%";
-    renderSurface.style.height    = "100%";
-    renderSurface.style.position  = "absolute";
-    $.getElement(viewer.canvas).appendChild( renderSurface );
+    var renderContainer = $.makeNeutralElement( useCanvas ? "canvas" : "div" );
+    renderContainer.style.width     = "100%";
+    renderContainer.style.height    = "100%";
+    renderContainer.style.position  = "absolute";
+    $.getElement(viewer.canvas).appendChild( renderContainer );
 
-    viewer.canvas = renderSurface;
-    viewer.renderingSurface = renderSurface.getContext("2d");
+    viewer.canvas = renderContainer;
+    viewer.renderingSurface = renderContainer.getContext("2d");
 
     var gridColours = ['#00FF00','#FFFF00'];
-    var ox = 0;
-    var oy = 0;
     for(var i=0;i<tileSources.length;i++) {
         var source = tileSources[i];
         var gridColor = gridColours[i % gridColours.length];
@@ -1225,10 +1222,9 @@ function createDrawers(viewer, tileSources) {
             source:             source,
             viewport:           viewer.viewport,
             element:            viewer.canvas,
-            canvas:             renderSurface,
+            canvas:             renderContainer,
             overlays:           source.overlays,
             maxImageCacheCount: viewer.maxImageCacheCount,
-            imageLoaderLimit:   viewer.imageLoaderLimit,
             minZoomImageRatio:  viewer.minZoomImageRatio,
             wrapHorizontal:     viewer.wrapHorizontal,
             wrapVertical:       viewer.wrapVertical,
@@ -1241,12 +1237,7 @@ function createDrawers(viewer, tileSources) {
             debugGridColor:     gridColor
         });
 
-        drawer.setRenderOffset(ox, oy);
         drawers.push(drawer);
-
-//        ox += 128;
-//        ox += source.dimensions.x;
-//        $.console.log('X Offset %s',ox);
     }
 
     return drawers;
@@ -1562,7 +1553,6 @@ function updateDrawers( viewer ) {
 
     //TODO
     if ( viewer.useCanvas ) {
-        //var viewportSize    = viewer.viewport.getContainerSize();
         var viewportSize    = viewer.viewport.containerSize;
         if( viewer.canvas.width  != viewportSize.x || viewer.canvas.height != viewportSize.y ) {
             $.console.log('Resize canvas %s,%s to viewport %s for viewer.',viewer.canvas.width,viewer.canvas.height,viewportSize.toString());
@@ -1573,6 +1563,10 @@ function updateDrawers( viewer ) {
         // Clear the surface ready to redraw
         viewer.renderingSurface.clearRect( 0, 0, viewportSize.x, viewportSize.y );
     }
+
+    // This is the bounding area of the viewport in terms of the current content.
+    // For single source content thats just the viewport bounds in image space for that source
+    // but for multi-source content (i.e. collections) this is the bounds of the viewport over the whole content space
 
     var viewportBounds  = viewer.viewport.getBounds( true );
     var numSections = viewer.drawers.length;
