@@ -1623,6 +1623,22 @@ function updateDrawers( viewer ) {
             viewer.drawers[i].update(viewportBounds);
         }
     }
+
+    renderDebugInfo(viewer);
+}
+
+function renderDebugInfo(viewer) {
+    var ctx = viewer.renderingSurface;
+    ctx.save();
+    ctx.lineWidth = 2;
+    ctx.font = 'small-caps 12px arial';
+    ctx.strokeStyle = "#FF00FF";
+    ctx.fillStyle = "#FF0000";
+
+    ctx.fillText( "Zoom: " + Math.round(viewer.viewport.getZoom(true) * 100), 0, 10 );
+    ctx.fillText( "Bounds: " + viewer.viewport.getBounds(true).toStringRounded(), 0, 20 );
+    ctx.fillText( "Center: " + viewer.viewport.getCenter(true).toStringRounded(), 0, 30 );
+    ctx.restore();
 }
 
 function updateOnce( viewer ) {

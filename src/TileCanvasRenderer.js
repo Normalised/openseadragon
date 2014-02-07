@@ -110,18 +110,6 @@
                 tile.size.x,
                 tile.size.y
             );
-            if( tile.x === 0 && tile.y === 0 ){
-                drawer.context.fillText(
-                    "Zoom: " + drawer.viewport.getZoom(true),
-                    tx,
-                    ty - 30
-                );
-                drawer.context.fillText(
-                    "Pan: " + drawer.viewport.getBounds(true).toString(),
-                    tx,
-                    ty - 20
-                );
-            }
             drawer.context.fillText(
                 "Level: " + tile.level,
                 tx + 10,
