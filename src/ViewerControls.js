@@ -260,8 +260,10 @@
         },
         bindKeyControls:function() {
             $.console.log('Bind Key Controls to Viewer %O',this.viewer);
+            var viewport = this.viewer.viewport;
+
             return new $.MouseTracker({
-                viewport : this.viewer.viewport,
+                viewport : viewport,
                 element:            this.viewer.keyboardCommandArea,
                 focusHandler:       function( event ){
                     if ( !event.preventDefaultAction ) {
@@ -424,5 +426,5 @@
                 $.requestAnimationFrame( this.zoomFrameHandler );
             }
         }
-    }
+    };
 }( OpenSeadragon ));

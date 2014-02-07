@@ -34,6 +34,8 @@
 
 (function( $ ){
 
+/* global Q */
+
 /**
  * @class Imageloader
  * @memberof OpenSeadragon
@@ -61,6 +63,6 @@ $.ImageLoader = {
         img.src = url;
         return d.promise;
     }
-}
+};
 
 }( OpenSeadragon ));

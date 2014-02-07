@@ -15,9 +15,7 @@
     $.TileCanvasRenderer = function(options) {
         $.console.log('New TileCanvasRenderer');
 
-        this.offsetX = 0;
-        this.offsetY = 0;
-        if(options == null) {
+        if(options === null) {
             options = {};
         }
 

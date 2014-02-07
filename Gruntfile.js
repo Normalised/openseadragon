@@ -160,7 +160,8 @@ module.exports = function(grunt) {
         jshint: {
             options: {
                 jshintrc: '.jshintrc',
-                force: true
+                force: true,
+                ignores:['node_modules/q/q.js']
             },
             beforeconcat: sources,
             afterconcat: [ distribution ]
@@ -218,7 +219,7 @@ module.exports = function(grunt) {
     // Build task.
     // Cleans out the build folder and builds the code and images into it, checking lint.
     grunt.registerTask("build", [
-        "clean:build", "jshint:beforeconcat", "git-describe", "concat", "jshint:afterconcat",
+        "clean:build", "jshint:beforeconcat", "git-describe", "concat",
         "uglify", "replace:cleanPaths", "copy:build"
     ]);
 

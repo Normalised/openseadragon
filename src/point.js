@@ -62,6 +62,13 @@ $.Point = function( x, y ) {
 $.Point.prototype = /** @lends OpenSeadragon.Point.prototype */{
 
     /**
+     * Are both components of the point valid numbers
+     * @return {boolean} True if both x and y are numbers, false if either are NaN
+     */
+    isValid:function() {
+        return !isNaN(this.x) && !isNaN(this.y);
+    },
+    /**
      * Add another Point to this point and return a new Point.
      * @function
      * @param {OpenSeadragon.Point} point The point to add vector components.
@@ -143,9 +150,15 @@ $.Point.prototype = /** @lends OpenSeadragon.Point.prototype */{
     },
 
     /**
-     * Add another Point to this point and return a new Point.
+     * Modify x and y by calling 'func' on each component separately.
+     * Useful for applying mathematical operations to both components, e.g.
+     *
+     * @example
+     * // Round down both components
+     * point.apply( Math.floor );
+     *
      * @function
-     * @param {OpenSeadragon.Point} point The point to add vector components.
+     * @param {function} func - The function to call on each component.
      * @returns {OpenSeadragon.Point} A new point representing the sum of the
      *  vector components
      */

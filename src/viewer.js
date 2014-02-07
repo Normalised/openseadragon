@@ -276,7 +276,7 @@ $.extend( $.Viewer.prototype, $.EventSource.prototype, $.ControlDock.prototype, 
             style.position = isAbsolute ? "absolute" : "relative";
             style.top      = "0px";
             style.left     = "0px";
-            if(extraStyles != null) {
+            if(extraStyles !== null) {
                 for(var s in extraStyles) {
                     style[s] = extraStyles[s];
                 }

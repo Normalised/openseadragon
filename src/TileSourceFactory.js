@@ -34,6 +34,8 @@
 
 (function( $ ){
 
+/* global Q */
+
 /**
  * @class TileSourceFactory
  * @memberof OpenSeadragon
@@ -70,7 +72,7 @@ $.TileSourceFactory = {
                 for(var i=0;i<tileSource.length;i++) {
                     sourcePromises.push(this.createTileSourceFromDescriptor(tileSource[i],configurator));
                 }
-                return Q.all(sourcePromises)
+                return Q.all(sourcePromises);
             }
         }
 
@@ -127,6 +129,6 @@ $.TileSourceFactory = {
         }
         return deferred.promise;
     }
-}
+};
 
 }( OpenSeadragon ));

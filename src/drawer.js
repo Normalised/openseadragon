@@ -114,7 +114,7 @@ $.Drawer = function( options ) {
      * @memberof OpenSeadragon.Drawer#
      */
 
-    var useOwnCanvas = this.canvas == undefined;
+    var useOwnCanvas = this.canvas === undefined;
     if(useOwnCanvas) {
         $.console.log('Creating canvas %O', this.canvas);
         this.canvas     = $.makeNeutralElement( this.useCanvas ? "canvas" : "div" );
@@ -485,7 +485,6 @@ $.Drawer.prototype = /** @lends OpenSeadragon.Drawer.prototype */{
         });
     },
     updateVisibilityAndLevels:function(lowestLevel, highestLevel, viewportTL, viewportBR, currentTime) {
-        //TODO
         var level,
             best = null,
             haveDrawn       = false,
@@ -496,19 +495,15 @@ $.Drawer.prototype = /** @lends OpenSeadragon.Drawer.prototype */{
             levelOpacity,
             levelVisibility;
 
-        var drawLevel; // FIXME: drawLevel should have a more explanatory name
+        var drawLevel;
         // Loop from the highest resolution to the lowest resolution level
         for ( level = highestLevel; level >= lowestLevel; level-- ) {
             drawLevel = false;
 
             //Avoid calculations for draw if we have already drawn this
-            renderPixelRatioC = this.viewport.deltaPixelsFromPoints(
-                this.source.getPixelRatio( level ),
-                true
-            ).x;
+            renderPixelRatioC = this.viewport.deltaPixelsFromPoints( this.source.getPixelRatio( level ), true ).x;
 
-            if ( ( !haveDrawn && renderPixelRatioC >= this.minPixelRatio ) ||
-                ( level == lowestLevel ) ) {
+            if ( ( !haveDrawn && (renderPixelRatioC >= this.minPixelRatio) ) || ( level == lowestLevel ) ) {
                 drawLevel = true;
                 haveDrawn = true;
             } else if ( !haveDrawn ) {
@@ -516,40 +511,18 @@ $.Drawer.prototype = /** @lends OpenSeadragon.Drawer.prototype */{
             }
 
             //Perform calculations for draw if we haven't drawn this
-            renderPixelRatioT = this.viewport.deltaPixelsFromPoints(
-                this.source.getPixelRatio( level ),
-                false
-            ).x;
-
+            renderPixelRatioT = this.viewport.deltaPixelsFromPoints( this.source.getPixelRatio( level ), false ).x;
             zeroRatioT      = this.viewport.deltaPixelsFromPoints(
-                this.source.getPixelRatio(
-                    Math.max(
-                        this.source.getClosestLevel( this.viewport.containerSize ) - 1,
-                        0
-                    )
-                ),
-                false
-            ).x;
+                this.source.getPixelRatio( Math.max( this.source.getClosestLevel( this.viewport.containerSize ) - 1, 0 ) ), false ).x;
 
             optimalRatio    = this.immediateRender ? 1 : zeroRatioT;
 
-            levelOpacity    = Math.min( 1, ( renderPixelRatioC - 0.5 ) / 0.5 );
+            levelOpacity    = Math.min( 1, ( renderPixelRatioC - 0.5 ) * 2 );
 
             levelVisibility = optimalRatio / Math.abs( optimalRatio - renderPixelRatioT );
 
             //TODO
-            best = updateLevel(
-                this,
-                haveDrawn,
-                drawLevel,
-                level,
-                levelOpacity,
-                levelVisibility,
-                viewportTL,
-                viewportBR,
-                currentTime,
-                best
-            );
+            best = updateLevel( this, haveDrawn, drawLevel, level, levelOpacity, levelVisibility, viewportTL, viewportBR, currentTime, best);
 
             //TODO
             if ( providesCoverage( this.coverage, level ) ) {
@@ -595,17 +568,8 @@ $.Drawer.prototype = /** @lends OpenSeadragon.Drawer.prototype */{
     },
     onTileLoad:function( tile, time, image ) {
 
-        $.console.log('On Tile Load %O', tile);
-        var insertionIndex,
-            cutoff,
-            worstTile,
-            worstTime,
-            worstLevel,
-            worstTileIndex,
-            prevTile,
-            prevTime,
-            prevLevel,
-            i;
+        $.console.log('Drawer On Tile Load %O', tile);
+        var insertionIndex;
 
         tile.loading = null;
 
@@ -629,43 +593,58 @@ $.Drawer.prototype = /** @lends OpenSeadragon.Drawer.prototype */{
         insertionIndex = this.tilesLoaded.length;
 
         if ( this.tilesLoaded.length >= this.maxImageCacheCount ) {
-            cutoff = Math.ceil( Math.log( this.source.tileSize ) / Math.log( 2 ) );
-
-            worstTile       = null;
-            worstTileIndex  = -1;
-
-            for ( i = this.tilesLoaded.length - 1; i >= 0; i-- ) {
-                prevTile = this.tilesLoaded[ i ];
-
-                if ( prevTile.level <= cutoff || prevTile.beingDrawn ) {
-                    continue;
-                } else if ( !worstTile ) {
-                    worstTile       = prevTile;
-                    worstTileIndex  = i;
-                    continue;
-                }
-
-                prevTime    = prevTile.lastTouchTime;
-                worstTime   = worstTile.lastTouchTime;
-                prevLevel   = prevTile.level;
-                worstLevel  = worstTile.level;
-
-                if ( prevTime < worstTime ||
-                    ( prevTime == worstTime && prevLevel > worstLevel ) ) {
-                    worstTile       = prevTile;
-                    worstTileIndex  = i;
-                }
-            }
-
-            if ( worstTile && worstTileIndex >= 0 ) {
-                worstTile.unload();
-                this.renderer.unload(worstTile);
-                insertionIndex = worstTileIndex;
-            }
+            insertionIndex = this.pruneTileCache(insertionIndex);
         }
 
         this.tilesLoaded[ insertionIndex ] = tile;
         this.updateAgain = true;
+    },
+    pruneTileCache:function(insertionIndex) {
+        var cutoff,
+            worstTile,
+            worstTime,
+            worstLevel,
+            worstTileIndex,
+            prevTile,
+            prevTime,
+            prevLevel,
+            i;
+
+        cutoff = Math.ceil( Math.log( this.source.tileSize ) / Math.log( 2 ) );
+
+        worstTile       = null;
+        worstTileIndex  = -1;
+
+        for ( i = this.tilesLoaded.length - 1; i >= 0; i-- ) {
+            prevTile = this.tilesLoaded[ i ];
+
+            if ( prevTile.level <= cutoff || prevTile.beingDrawn ) {
+                continue;
+            } else if ( !worstTile ) {
+                worstTile       = prevTile;
+                worstTileIndex  = i;
+                continue;
+            }
+
+            prevTime    = prevTile.lastTouchTime;
+            worstTime   = worstTile.lastTouchTime;
+            prevLevel   = prevTile.level;
+            worstLevel  = worstTile.level;
+
+            if ( prevTime < worstTime ||
+                ( prevTime == worstTime && prevLevel > worstLevel ) ) {
+                worstTile       = prevTile;
+                worstTileIndex  = i;
+            }
+        }
+
+        if ( worstTile && worstTileIndex >= 0 ) {
+            worstTile.unload();
+            this.renderer.unload(worstTile);
+            insertionIndex = worstTileIndex;
+        }
+
+        return insertionIndex;
     }
 };
 
