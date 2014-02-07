@@ -34,19 +34,6 @@
 
 (function( $ ){
 
-var DEVICE_SCREEN       = $.getWindowSize(),
-    BROWSER             = $.Browser.vendor,
-    BROWSER_VERSION     = $.Browser.version,
-
-    SUBPIXEL_RENDERING = (
-        ( BROWSER == $.BROWSERS.FIREFOX ) ||
-        ( BROWSER == $.BROWSERS.OPERA )   ||
-        ( BROWSER == $.BROWSERS.SAFARI && BROWSER_VERSION >= 4 ) ||
-        ( BROWSER == $.BROWSERS.CHROME && BROWSER_VERSION >= 2 ) ||
-        ( BROWSER == $.BROWSERS.IE     && BROWSER_VERSION >= 9 )
-    );
-
-
 /**
  * @class Drawer
  * @classdesc Handles rendering of tiles for an {@link OpenSeadragon.Viewer}. 
@@ -78,7 +65,6 @@ $.Drawer = function( options ) {
 
         //internal state properties
         viewer:         null,
-        downloading:    0,     // How many images are currently being loaded in parallel.
         tilesMatrix:    {},    // A '3d' dictionary [level][x][y] --> Tile.
         tilesLoaded:    [],    // An unordered list of Tiles with loaded images.
         coverage:       {},    // A '3d' dictionary [level][x][y] --> Boolean.
@@ -94,7 +80,6 @@ $.Drawer = function( options ) {
 
         //configurable settings
         maxImageCacheCount: $.DEFAULT_SETTINGS.maxImageCacheCount,
-        imageLoaderLimit:   $.DEFAULT_SETTINGS.imageLoaderLimit,
         minZoomImageRatio:  $.DEFAULT_SETTINGS.minZoomImageRatio,
         wrapHorizontal:     $.DEFAULT_SETTINGS.wrapHorizontal,
         wrapVertical:       $.DEFAULT_SETTINGS.wrapVertical,
@@ -408,11 +393,6 @@ $.Drawer.prototype = /** @lends OpenSeadragon.Drawer.prototype */{
      */
     canRotate: function() {
         return this.useCanvas;
-    },
-    setRenderOffset:function(offset) {
-        // dont draw at 0,0
-//        this.renderer.offsetX = offset.x;
-//        this.renderer.offsetY = offset.y;
     },
     draw:function(bounds ) {
 
@@ -801,8 +781,6 @@ function updateTile( drawer, drawLevel, haveDrawn, x, y, level, levelOpacity, le
 
     } else if ( tile.loading && !tile.loading.isFulfilled() ) {
         $.console.log("Tile is loading %s", tile.url);
-        // the tile is already in the download queue
-        // thanks josh1093 for finally translating this typo
     } else {
         best = compareTiles( best, tile );
     }
