@@ -938,7 +938,6 @@ $.extend( $.Viewer.prototype, $.EventSource.prototype, $.ControlDock.prototype, 
         return this.drawers[0].canRotate();
     },
     update:function() {
-        $.console.log('Viewer instance update');
         updateDrawers(this);
     },
     needsDrawUpdate:function() {

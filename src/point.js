@@ -192,7 +192,7 @@ $.Point.prototype = /** @lends OpenSeadragon.Point.prototype */{
     },
 
     toStringRounded:function() {
-        return "(" + Math.round(this.x) + "," + Math.round(this.y) + ")";
+        return "(" + Math.round(this.x * 100) + "," + Math.round(this.y * 100) + ")";
     }
 };
 
