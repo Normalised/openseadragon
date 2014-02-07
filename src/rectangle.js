@@ -149,8 +149,8 @@ $.Rect.prototype = /** @lends OpenSeadragon.Rect.prototype */{
      */
     getCenter: function() {
         return new $.Point(
-            this.x + this.width / 2.0,
-            this.y + this.height / 2.0
+            this.x + this.width * 0.5,
+            this.y + this.height * 0.5
         );
     },
 
@@ -244,12 +244,13 @@ $.Rect.prototype = /** @lends OpenSeadragon.Rect.prototype */{
      * @function
      * @returns {String} A string representation of the rectangle.
      */
-    toStringRounded: function() {
+    toStringRounded: function(noScale) {
+        var scale = noScale ? 1.0 : 100.0;
         return "[" +
-            Math.round(this.x*100) + "," +
-            Math.round(this.y*100) + ", " +
-            Math.round(this.width*100) + "x" +
-            Math.round(this.height*100) +
+            Math.round(this.x*scale) + "," +
+            Math.round(this.y*scale) + ", " +
+            Math.round(this.width*scale) + "x" +
+            Math.round(this.height*scale) +
         "]";
     },
     toString: function() {

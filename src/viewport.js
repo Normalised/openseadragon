@@ -204,8 +204,8 @@ $.Viewport.prototype = /** @lends OpenSeadragon.Viewport.prototype */{
      * @function
      */
     getAspectRatio: function() {
-        //return this.containerAspectRatio;
-        return this.containerSize.x / this.containerSize.y;
+        this.containerAspectRatio = this.containerSize.x / this.containerSize.y;
+        return this.containerAspectRatio;
     },
 
     /**
@@ -214,6 +214,7 @@ $.Viewport.prototype = /** @lends OpenSeadragon.Viewport.prototype */{
      * @function
      */
     getContainerSize: function() {
+        $.console.log('Get Container Size %O',this.containerSize);
         return new $.Point(
             this.containerSize.x,
             this.containerSize.y
@@ -229,7 +230,8 @@ $.Viewport.prototype = /** @lends OpenSeadragon.Viewport.prototype */{
     getBounds: function( current ) {
         var center = this.getCenter( current ),
             width  = 1.0 / this.getZoom( current ),
-            height = width / this.getAspectRatio();
+            height = width / this.containerAspectRatio;
+//            height = width / this.getAspectRatio();
 
         return new $.Rect(
             center.x - ( width * 0.5 ),

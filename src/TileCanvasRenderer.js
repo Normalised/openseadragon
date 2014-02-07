@@ -98,9 +98,9 @@
         debug:function(drawer, tile, count, i) {
             drawer.context.save();
             drawer.context.lineWidth = 2;
-            drawer.context.font = 'small-caps bold 11px arial';
+            drawer.context.font = 'small-caps 12px inconsolata';
             drawer.context.strokeStyle = this.debugGridColor;
-            drawer.context.fillStyle = this.debugTextColor;
+            drawer.context.fillStyle = "#0077FF";
 
             var tx = tile.position.x;
             var ty = tile.position.y;
@@ -131,12 +131,12 @@
                 ty + 50
             );
             drawer.context.fillText(
-                "Size: " + tile.size.toStringRounded(),
+                "Size: " + tile.size.toStringRounded(true),
                 tx + 10,
                 ty + 60
             );
             drawer.context.fillText(
-                "Position: " + tile.position.toStringRounded(),
+                "Position: " + tile.position.toStringRounded(true),
                 tx + 10,
                 ty + 70
             );

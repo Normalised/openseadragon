@@ -169,7 +169,6 @@ $.Viewer = function( options ) {
     //Private state properties
     ViewerStateMap[ this.hash ] = {
         "fsBoundsDelta":     new $.Point( 1, 1 ),
-        "prevContainerSize": null,
         "animating":         false,
         "forceRedraw":       false,
         "mouseInside":       false,
@@ -1047,11 +1046,11 @@ function openTileSource( viewer, source ) {
     }
 
     _this.canvas.innerHTML = "";
-    ViewerStateMap[ _this.hash ].prevContainerSize = _getSafeElemSize( _this.container );
+    viewer.prevContainerSize = _getSafeElemSize( _this.container );
 
     // Specify common viewport options
     var viewportOptions = {
-        containerSize:      ViewerStateMap[ _this.hash ].prevContainerSize,
+        containerSize:      viewer.prevContainerSize,
         springStiffness:    _this.springStiffness,
         animationTime:      _this.animationTime,
         minZoomImageRatio:  _this.minZoomImageRatio,
@@ -1563,7 +1562,8 @@ function updateDrawers( viewer ) {
 
     //TODO
     if ( viewer.useCanvas ) {
-        var viewportSize    = viewer.viewport.getContainerSize();
+        //var viewportSize    = viewer.viewport.getContainerSize();
+        var viewportSize    = viewer.viewport.containerSize;
         if( viewer.canvas.width  != viewportSize.x || viewer.canvas.height != viewportSize.y ) {
             $.console.log('Resize canvas %s,%s to viewport %s for viewer.',viewer.canvas.width,viewer.canvas.height,viewportSize.toString());
             viewer.canvas.width  = viewportSize.x;
@@ -1602,20 +1602,24 @@ function updateDrawers( viewer ) {
         }
     }
 
-    renderDebugInfo(viewer);
+    if(viewer.debugMode) {
+        renderDebugInfo(viewer);
+    }
 }
 
 function renderDebugInfo(viewer) {
     var ctx = viewer.renderingSurface;
     ctx.save();
     ctx.lineWidth = 2;
-    ctx.font = 'small-caps 12px arial';
+    ctx.font = 'small-caps 14px inconsolata';
     ctx.strokeStyle = "#FF00FF";
-    ctx.fillStyle = "#FF0000";
+    ctx.fillStyle = "#FF0077";
 
-    ctx.fillText( "Zoom: " + Math.round(viewer.viewport.getZoom(true) * 100), 0, 10 );
-    ctx.fillText( "Bounds: " + viewer.viewport.getBounds(true).toStringRounded(), 0, 20 );
-    ctx.fillText( "Center: " + viewer.viewport.getCenter(true).toStringRounded(), 0, 30 );
+    ctx.fillText( "Zoom: " + Math.round(viewer.viewport.getZoom(true) * 100), 0, 12 );
+    ctx.fillText( "Bounds: " + viewer.viewport.getBounds(true).toStringRounded(), 0, 24 );
+    ctx.fillText( "Center: " + viewer.viewport.getCenter(true).toStringRounded(), 0, 36 );
+    ctx.fillText( "Home Bounds: " + viewer.viewport.homeBounds.toStringRounded(), 0, 48 );
+    ctx.fillText( "Get Home   : " + viewer.viewport.getHomeBounds().toStringRounded(), 0, 60 );
     ctx.restore();
 }
 
@@ -1630,12 +1634,12 @@ function updateOnce( viewer ) {
 
     if ( viewer.autoResize ) {
         containerSize = _getSafeElemSize( viewer.container );
-        if ( !containerSize.equals( ViewerStateMap[ viewer.hash ].prevContainerSize ) ) {
+        if ( !containerSize.equals( viewer.prevContainerSize ) ) {
             // maintain image position
             var oldBounds = viewer.viewport.getBounds();
             var oldCenter = viewer.viewport.getCenter();
             resizeViewportAndRecenter(viewer, containerSize, oldBounds, oldCenter);
-            ViewerStateMap[ viewer.hash ].prevContainerSize = containerSize;
+            viewer.prevContainerSize = containerSize;
             ViewerStateMap[ viewer.hash ].forceRedraw = true;
         }
     }
@@ -1646,16 +1650,8 @@ function updateOnce( viewer ) {
         animated = viewer.referenceStrip.update( viewer.viewport ) || animated;
     }
 
+    // TODO : This doesn't belong here as its related to viewport behaviour
     if ( !ViewerStateMap[ viewer.hash ].animating && animated ) {
-        /**
-         * Raised when any spring animation starts (zoom, pan, etc.).
-         *
-         * @event animation-start
-         * @memberof OpenSeadragon.Viewer
-         * @type {object}
-         * @property {OpenSeadragon.Viewer} eventSource - A reference to the Viewer which raised this event.
-         * @property {?Object} userData - Arbitrary subscriber-defined object.
-         */
         viewer.raiseEvent( "animation-start" );
         abortControlsAutoHide( viewer );
     }

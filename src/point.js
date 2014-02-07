@@ -191,8 +191,9 @@ $.Point.prototype = /** @lends OpenSeadragon.Point.prototype */{
         return "(" + this.x + "," + this.y + ")";
     },
 
-    toStringRounded:function() {
-        return "(" + Math.round(this.x * 100) + "," + Math.round(this.y * 100) + ")";
+    toStringRounded:function(noScale) {
+        var scale = noScale ? 1.0 : 100.0;
+        return "(" + Math.round(this.x * scale) + "," + Math.round(this.y * scale) + ")";
     }
 };
 
