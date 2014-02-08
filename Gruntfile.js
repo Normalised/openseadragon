@@ -49,9 +49,9 @@ module.exports = function(grunt) {
             "src/tilesources//TileSourceFactory.js",
             "src/geom2d/point.js",
             "src/geom2d/rectangle.js",
-            "src/displayrectangle.js",
+            "src/geom2d/displayrectangle.js",
             "src/spring.js",
-            "src/overlay.js",
+            "src/ui/overlay.js",
             /** Depends on Viewer / Event Source **/
             "src/ui/referencestrip.js",
             "src/renderers/TileCanvasRenderer.js",
@@ -157,7 +157,7 @@ module.exports = function(grunt) {
             }
         },
         watch: {
-            files: [ "Gruntfile.js", "src/*.js", "images/*" ],
+            files: [ "Gruntfile.js", "src/**/*.js", "images/*" ],
             tasks: "build"
         },
         jshint: {
