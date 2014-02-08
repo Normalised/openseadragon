@@ -191,6 +191,7 @@ $.TileSource = function( width, height, tileSize, tileOverlap, minLevel, maxLeve
 
     // Precompute the inverse tile size
     this.oneOverTileSize = 1.0 / this.tileSize;
+    this.maxLevel = Math.abs(this.maxLevel);
 };
 
 
