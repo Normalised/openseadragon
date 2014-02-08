@@ -466,7 +466,6 @@ function onStripEnter( event ) {
     var element = event.eventSource.element;
     
     //$.setElementOpacity(element, 0.8);
-
     //element.style.border = '1px solid #555';
     //element.style.background = '#000';
 

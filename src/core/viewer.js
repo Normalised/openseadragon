@@ -245,14 +245,6 @@ $.Viewer = function( options ) {
     this.viewerControls.bindStandardControls(this);
     this.viewerControls.bindSequenceControls(this);
 
-//    if ( initialTileSource ) {
-//        this.open( initialTileSource );
-//
-//        if ( this.tileSources.length > 1 ) {
-//            this._updateSequenceButtons( this.initialPage );
-//        }
-//    }
-
     for ( i = 0; i < this.customControls.length; i++ ) {
         this.addControl(
             this.customControls[ i ].id,

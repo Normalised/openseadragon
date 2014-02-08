@@ -59,6 +59,7 @@ var I18N = {
     }
 };
 
+
 $.extend( $, /** @lends OpenSeadragon */{
 
     /**

@@ -22,38 +22,41 @@ module.exports = function(grunt) {
         sources = [
             "node_modules/q/q.js",
             "src/openseadragon.js",
-            "src/fullscreen.js",
+            /** Later Files have dependencies on these **/
             "src/eventsource.js",
+            "src/ui/controldock.js",
+            /** Viewer depends on event source / control dock **/
+            "src/core/viewer.js",
+            "src/core/tile.js",
+            "src/core/drawer.js",
+            "src/core/viewport.js",
+            "src/fullscreen.js",
             "src/mousetracker.js",
-            "src/control.js",
-            "src/controldock.js",
-            "src/ViewerControls.js",
-            "src/viewer.js",
-            "src/navigator.js",
+            "src/ui/control.js",
+            "src/ui/ViewerControls.js",
+            "src/ui/button.js",
+            "src/ui/buttongroup.js",
+            "src/ui/navigator.js",
             "src/strings.js",
-            "src/point.js",
-            "src/tilesource.js",
-            "src/dzitilesource.js",
-            "src/iiiftilesource.js",
-            "src/iiif1_1tilesource.js",
-            "src/osmtilesource.js",
-            "src/tmstilesource.js",
-            "src/legacytilesource.js",
-            "src/tilesourcecollection.js",
-            "src/button.js",
-            "src/buttongroup.js",
-            "src/rectangle.js",
-            "src/referencestrip.js",
+            "src/tilesources/tilesource.js",
+            "src/tilesources/dzitilesource.js",
+            "src/tilesources/iiiftilesource.js",
+            "src/tilesources/iiif1_1tilesource.js",
+            "src/tilesources/osmtilesource.js",
+            "src/tilesources/tmstilesource.js",
+            "src/tilesources/legacytilesource.js",
+            "src/tilesources/tilesourcecollection.js",
+            "src/tilesources//TileSourceFactory.js",
+            "src/geom2d/point.js",
+            "src/geom2d/rectangle.js",
             "src/displayrectangle.js",
             "src/spring.js",
-            "src/tile.js",
             "src/overlay.js",
-            "src/drawer.js",
-            "src/viewport.js",
-            "src/TileCanvasRenderer.js",
-            "src/TileHtmlRenderer.js",
-            "src/TileSourceFactory.js",
-            "src/ImageLoader.js"
+            /** Depends on Viewer / Event Source **/
+            "src/ui/referencestrip.js",
+            "src/renderers/TileCanvasRenderer.js",
+            "src/renderers/TileHtmlRenderer.js",
+            "src/util/ImageLoader.js"
         ];
 
     // ----------
@@ -110,7 +113,7 @@ module.exports = function(grunt) {
                 },
                 sourceMappingURL: function (filename) {
                     return filename.replace(/\.js$/, '.js.map').replace('build/openseadragon/', '');
-                },
+                }
             },
             openseadragon: {
                 src: [ distribution ],
