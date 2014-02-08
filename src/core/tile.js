@@ -206,6 +206,21 @@ $.Tile.prototype = /** @lends OpenSeadragon.Tile.prototype */{
         this.image      = null;
         this.loaded     = false;
         this.loading    = null;
+    },
+    getBetterTile:function(otherTile) {
+        if ( !otherTile ) {
+            return this;
+        }
+        if ( this.visibility > otherTile.visibility ) {
+            return this;
+        } else if ( this.visibility == otherTile.visibility ) {
+//            $.console.info('Check tile distances %s -> %s',this.distance,otherTile.distance);
+            if ( this.distance < otherTile.distance ) {
+                return this;
+            }
+        }
+
+        return otherTile;
     }
 };
 
