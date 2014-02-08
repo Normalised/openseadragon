@@ -750,11 +750,7 @@ $.Viewport.prototype = /** @lends OpenSeadragon.Viewport.prototype */{
     pixelFromPoint: function( point, current ) {
         var bounds = this.getBounds( current );
         //$.console.log('Pixel from Point %O. Bounds %O ',point, bounds);
-        return point.minus(
-            bounds.getTopLeft()
-        ).times(
-            this.containerSize.x / bounds.width
-        );
+        return point.minus( bounds.getTopLeft() ).times( this.containerSize.x / bounds.width );
     },
 
     /**
