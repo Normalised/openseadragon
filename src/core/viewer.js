@@ -1193,6 +1193,10 @@ function createDrawers(viewer, tileSources) {
     var drawers = [];
     var drawer = null;
 
+    // Create the rendering elements
+    // TODO : Its only really IE 8 that doesn't support canvas but using this
+    // https://code.google.com/p/explorercanvas
+    // will allow canvas usage in IE, so add that and remove all the 'div' / html renderer support.
     var useCanvas = $.supportsCanvas && viewer.useCanvas;
     var renderContainer = $.makeNeutralElement( useCanvas ? "canvas" : "div" );
     renderContainer.style.width     = "100%";
@@ -1204,14 +1208,55 @@ function createDrawers(viewer, tileSources) {
     viewer.renderingSurface = renderContainer.getContext("2d");
 
     var gridColours = ['#00FF00','#FFFF00'];
-    for(var i=0;i<tileSources.length;i++) {
-        var source = tileSources[i];
+
+    var i = 0;
+    var source = null;
+    // First need to find out the total size of all the tileSources when layed out according to collectionLayout
+    // At the moment only $.LAYOUT.HORIZONTAL and $.LAYOUT.VERTICAL are supported
+    var totalContentSize = new $.Point(0,0);
+    // How far away from 0,0 this source is
+    var sourceOffsets = [];
+    for(i=0;i<tileSources.length;i++) {
+        source = tileSources[i];
+        if(viewer.collectionLayout === $.LAYOUT.HORIZONTAL) {
+            sourceOffsets[i] = new $.Point(totalContentSize.x, 0);
+            totalContentSize.x += source.dimensions.x;
+            if(source.dimensions.y > totalContentSize.y) {
+                totalContentSize.y = source.dimensions.y;
+            }
+        } else {
+            sourceOffsets[i] = new $.Point(0, totalContentSize.y);
+            totalContentSize.y += source.dimensions.y;
+            if(source.dimensions.x > totalContentSize.x) {
+                totalContentSize.x = source.dimensions.x;
+            }
+        }
+    }
+
+    $.console.log('Total Content Size %s', totalContentSize.toString());
+    $.console.log('Source Offsets %O',sourceOffsets);
+
+    for(i=0;i<tileSources.length;i++) {
+        source = tileSources[i];
         var gridColor = gridColours[i % gridColours.length];
+
+        // Now we have the total content size we create content bounds for each drawer
+        // The content bounds are rectangles which define how much each tile source / drawer
+        // covers of the whole content area.
+        // e.g.
+        // For a single source the bounds will be 0,0 -> 1,1
+        // For two sources layed out horizontally which have equal dimensions they will be
+        // 0,0 -> 0.5,1  and  0.5,0 -> 1,1
+        var offset = sourceOffsets[i];
+        var contentBounds = new $.Rect(offset.x / totalContentSize.x,offset.y / totalContentSize.y,
+                                       source.dimensions.x / totalContentSize.x, source.dimensions.y / totalContentSize.y);
+        $.console.log('Content Bounds %s', contentBounds.toString());
 
         drawer = new $.Drawer({
             sourceIndex:        i,
             viewer:             viewer,
             source:             source,
+            contentBounds:      contentBounds,
             viewport:           viewer.viewport,
             element:            viewer.canvas,
             canvas:             renderContainer,
@@ -1308,20 +1353,7 @@ function onCanvasClick( event ) {
         );
         this.viewport.applyConstraints();
     }
-    /**
-     * Raised when a mouse press/release or touch/remove occurs on the {@link OpenSeadragon.Viewer#canvas} element.
-     *
-     * @event canvas-click
-     * @memberof OpenSeadragon.Viewer
-     * @type {object}
-     * @property {OpenSeadragon.Viewer} eventSource - A reference to the Viewer which raised this event.
-     * @property {OpenSeadragon.MouseTracker} tracker - A reference to the MouseTracker which originated this event.
-     * @property {OpenSeadragon.Point} position - The position of the event relative to the tracked element.
-     * @property {Boolean} quick - True only if the clickDistThreshold and clickDeltaThreshold are both passed. Useful for differentiating between clicks and drags.
-     * @property {Boolean} shift - True if the shift key was pressed during this event.
-     * @property {Object} originalEvent - The original DOM event.
-     * @property {?Object} userData - Arbitrary subscriber-defined object.
-     */
+
     this.raiseEvent( 'canvas-click', {
         tracker: event.eventSource,
         position: event.position,
@@ -1408,20 +1440,7 @@ function onCanvasScroll( event ) {
         );
         this.viewport.applyConstraints();
     }
-    /**
-     * Raised when a scroll event occurs on the {@link OpenSeadragon.Viewer#canvas} element (mouse wheel, touch pinch, etc.).
-     *
-     * @event canvas-scroll
-     * @memberof OpenSeadragon.Viewer
-     * @type {object}
-     * @property {OpenSeadragon.Viewer} eventSource - A reference to the Viewer which raised this event.
-     * @property {OpenSeadragon.MouseTracker} tracker - A reference to the MouseTracker which originated this event.
-     * @property {OpenSeadragon.Point} position - The position of the event relative to the tracked element.
-     * @property {Number} scroll - The scroll delta for the event.
-     * @property {Boolean} shift - True if the shift key was pressed during this event.
-     * @property {Object} originalEvent - The original DOM event.
-     * @property {?Object} userData - Arbitrary subscriber-defined object.
-     */
+
     this.raiseEvent( 'canvas-scroll', {
         tracker: event.eventSource,
         position: event.position,
@@ -1440,20 +1459,7 @@ function onContainerExit( event ) {
             this.beginControlsAutoHide();
         }
     }
-    /**
-     * Raised when the cursor leaves the {@link OpenSeadragon.Viewer#container} element.
-     *
-     * @event container-exit
-     * @memberof OpenSeadragon.Viewer
-     * @type {object}
-     * @property {OpenSeadragon.Viewer} eventSource - A reference to the Viewer which raised this event.
-     * @property {OpenSeadragon.MouseTracker} tracker - A reference to the MouseTracker which originated this event.
-     * @property {OpenSeadragon.Point} position - The position of the event relative to the tracked element.
-     * @property {Boolean} insideElementPressed - True if the left mouse button is currently being pressed and was initiated inside the tracked element, otherwise false.
-     * @property {Boolean} buttonDownAny - Was the button down anywhere in the screen during the event.
-     * @property {Object} originalEvent - The original DOM event.
-     * @property {?Object} userData - Arbitrary subscriber-defined object.
-     */
+
     this.raiseEvent( 'container-exit', {
         tracker: event.eventSource,
         position: event.position,
@@ -1470,20 +1476,7 @@ function onContainerRelease( event ) {
             this.beginControlsAutoHide();
         }
     }
-    /**
-     * Raised when the mouse button is released or touch ends on the {@link OpenSeadragon.Viewer#container} element.
-     *
-     * @event container-release
-     * @memberof OpenSeadragon.Viewer
-     * @type {object}
-     * @property {OpenSeadragon.Viewer} eventSource - A reference to the Viewer which raised this event.
-     * @property {OpenSeadragon.MouseTracker} tracker - A reference to the MouseTracker which originated this event.
-     * @property {OpenSeadragon.Point} position - The position of the event relative to the tracked element.
-     * @property {Boolean} insideElementPressed - True if the left mouse button is currently being pressed and was initiated inside the tracked element, otherwise false.
-     * @property {Boolean} insideElementReleased - True if the cursor still inside the tracked element when the button was released.
-     * @property {Object} originalEvent - The original DOM event.
-     * @property {?Object} userData - Arbitrary subscriber-defined object.
-     */
+
     this.raiseEvent( 'container-release', {
         tracker: event.eventSource,
         position: event.position,
@@ -1496,20 +1489,7 @@ function onContainerRelease( event ) {
 function onContainerEnter( event ) {
     ViewerStateMap[ this.hash ].mouseInside = true;
     abortControlsAutoHide( this );
-    /**
-     * Raised when the cursor enters the {@link OpenSeadragon.Viewer#container} element.
-     *
-     * @event container-enter
-     * @memberof OpenSeadragon.Viewer
-     * @type {object}
-     * @property {OpenSeadragon.Viewer} eventSource - A reference to the Viewer which raised this event.
-     * @property {OpenSeadragon.MouseTracker} tracker - A reference to the MouseTracker which originated this event.
-     * @property {OpenSeadragon.Point} position - The position of the event relative to the tracked element.
-     * @property {Boolean} insideElementPressed - True if the left mouse button is currently being pressed and was initiated inside the tracked element, otherwise false.
-     * @property {Boolean} buttonDownAny - Was the button down anywhere in the screen during the event.
-     * @property {Object} originalEvent - The original DOM event.
-     * @property {?Object} userData - Arbitrary subscriber-defined object.
-     */
+
     this.raiseEvent( 'container-enter', {
         tracker: event.eventSource,
         position: event.position,
@@ -1556,36 +1536,11 @@ function updateDrawers( viewer ) {
         viewer.renderingSurface.clearRect( 0, 0, viewportSize.x, viewportSize.y );
     }
 
-    // This is the bounding area of the viewport in terms of the current content.
-    // For single source content thats just the viewport bounds in image space for that source
-    // but for multi-source content (i.e. collections) this is the bounds of the viewport over the whole content space
-
     var viewportBounds  = viewer.viewport.getBounds( true );
     var numSections = viewer.drawers.length;
 
-    var i = 0;
-
-    var offset = new $.Point(0,0);
-    if(viewer.collectionLayout == $.LAYOUT.HORIZONTAL) {
-        // split the viewport into vertical slices
-        var sectionWidth = viewportBounds.width / numSections;
-        var ox = viewportBounds.x;
-        var drawer = null;
-        var widthDrawnSoFar = 0;
-        for(i=0;i<numSections;i++) {
-            drawer = viewer.drawers[i];
-            offset.x = widthDrawnSoFar;
-            //drawer.setRenderOffset(viewer.viewport.pixelFromPoint(offset, true));
-            drawer.update(viewportBounds);
-            // Need to increment the amount drawn by the actual pixel size of the rendered image
-            // widthDrawnSoFar +=
-        }
-
-    } else {
-        // split the viewport into horizontal slices
-        for(i=0;i<numSections;i++) {
-            viewer.drawers[i].update(viewportBounds);
-        }
+    for(var i=0;i<numSections;i++) {
+        viewer.drawers[i].update(viewportBounds);
     }
 
     if(viewer.debugMode) {
@@ -1647,15 +1602,7 @@ function updateOnce( viewer ) {
         if( viewer.navigator ){
             viewer.navigator.update( viewer.viewport );
         }
-        /**
-         * Raised when any spring animation update occurs (zoom, pan, etc.).
-         *
-         * @event animation
-         * @memberof OpenSeadragon.Viewer
-         * @type {object}
-         * @property {OpenSeadragon.Viewer} eventSource - A reference to the Viewer which raised this event.
-         * @property {?Object} userData - Arbitrary subscriber-defined object.
-         */
+
         viewer.raiseEvent( "animation" );
     } else if ( ViewerStateMap[ viewer.hash ].forceRedraw || viewer.needsDrawUpdate() ) {
         updateDrawers(viewer);
@@ -1666,15 +1613,7 @@ function updateOnce( viewer ) {
     }
 
     if ( ViewerStateMap[ viewer.hash ].animating && !animated ) {
-        /**
-         * Raised when any spring animation ends (zoom, pan, etc.).
-         *
-         * @event animation-finish
-         * @memberof OpenSeadragon.Viewer
-         * @type {object}
-         * @property {OpenSeadragon.Viewer} eventSource - A reference to the Viewer which raised this event.
-         * @property {?Object} userData - Arbitrary subscriber-defined object.
-         */
+
         viewer.raiseEvent( "animation-finish" );
 
         if ( !ViewerStateMap[ viewer.hash ].mouseInside ) {
