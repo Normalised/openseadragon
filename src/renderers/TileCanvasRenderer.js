@@ -38,8 +38,6 @@
             }
             context.globalAlpha = tile.opacity;
 
-            //context.save();
-
             //if we are supposed to be rendering fully opaque rectangle,
             //ie its done fading or fading is turned off, and if we are drawing
             //an image with an alpha channel, then the only way
@@ -70,22 +68,13 @@
                 rendered = TILE_CACHE[ tile.url ];
             }
 
-            //rendered.save();
-            context.drawImage(
-                rendered.canvas,
-                0,
-                0,
-                rendered.canvas.width,
-                rendered.canvas.height,
-                position.x,
-                position.y,
-                size.x,
-                size.y
-            );
-            //rendered.restore();
-
-            //context.restore();
-
+            if(this.debugMode) {
+                context.save();
+                context.globalAlpha = 0.5;
+                context.restore();
+            } else {
+                context.drawImage( rendered.canvas, 0, 0, rendered.canvas.width, rendered.canvas.height, position.x, position.y, size.x, size.y );
+            }
         },
         unload: function(tile) {
             if ( TILE_CACHE[ tile.url ]){
@@ -96,9 +85,9 @@
         debug:function(drawer, tile, count, i) {
             drawer.context.save();
             drawer.context.lineWidth = 2;
-            drawer.context.font = 'small-caps 12px inconsolata';
+            drawer.context.font = 'bold small-caps 12px inconsolata';
             drawer.context.strokeStyle = this.debugGridColor;
-            drawer.context.fillStyle = "#0077FF";
+            drawer.context.fillStyle = "#44AAFF";
 
             var tx = tile.position.x;
             var ty = tile.position.y;
@@ -138,6 +127,12 @@
                 tx + 10,
                 ty + 70
             );
+            drawer.context.fillText(
+                "Bounds: " + tile.bounds.toStringRounded(),
+                tx + 10,
+                ty + 80
+            );
+
             drawer.context.restore();
         }
     };
