@@ -464,7 +464,8 @@ $.Drawer.prototype = /** @lends OpenSeadragon.Drawer.prototype */{
     },
     scaleBoundsToContent:function(bounds) {
         // scale content bounds by zoom level
-        var scaledContentBounds = this.contentBounds.scale(1 / this.viewport.getZoom(true));
+        //var scaledContentBounds = this.contentBounds.scale(1 / this.viewport.getZoom(true));
+        var scaledContentBounds = this.contentBounds;
 
         // scale viewport bounds for entire content to local content
         this.scaledBounds = bounds.clone();
@@ -654,6 +655,8 @@ $.Drawer.prototype = /** @lends OpenSeadragon.Drawer.prototype */{
         var x, y, tileTL, tileBR, numberOfTiles,
             viewportCenter  = this.pixelFromPoint( this.viewport.getCenter(true) );
 
+//        viewportCenter = viewportCenter.times(this.contentBounds.width);
+//        viewportCenter = viewportCenter.plus(this.contentBounds.getTopLeft());
         //OK, a new drawing so do your calculations
         tileTL    = this.source.getTileAtPoint( level, viewportTL );
         tileBR    = this.source.getTileAtPoint( level, viewportBR );
