@@ -156,17 +156,18 @@ $.Drawer = function( options ) {
         }
     }
 
-    this.lowestLevelK = Math.floor( Math.log( this.minZoomImageRatio ) /  Math.log( 2 ) );
-    this.zeroPixelRatio  = this.source.getPixelRatio(0);
-    this.lowestLevelK2 = Math.max( this.source.minLevel, this.lowestLevelK);
-    this.oneOverMinPixelRatio = 1.0 / this.minPixelRatio;
-
     // Check contentBounds are configured
     if(this.contentBounds === null) {
         this.contentBounds = new $.Rect(0,0,1,1);
     } else {
         $.console.log('Using Content Bounds %s', this.contentBounds.toString());
     }
+    this.lowestLevelK = Math.floor( Math.log( this.minZoomImageRatio ) /  Math.log( 2 ) );
+    this.zeroPixelRatio  = this.getSourcePixelRatio(0);
+    $.console.log('ZPR %s',this.zeroPixelRatio);
+    this.lowestLevelK2 = Math.max( this.source.minLevel, this.lowestLevelK);
+    this.oneOverMinPixelRatio = 1.0 / this.minPixelRatio;
+
 };
 
 $.Drawer.prototype = /** @lends OpenSeadragon.Drawer.prototype */{
@@ -206,7 +207,7 @@ $.Drawer.prototype = /** @lends OpenSeadragon.Drawer.prototype */{
 
         $.console.log('Drawer::addOverlay. Options : %O.', options);
 
-        if ( getOverlayIndex( this.overlays, element ) >= 0 ) {
+        if ( this.getOverlayIndex( this.overlays, element ) >= 0 ) {
             // they're trying to add a duplicate overlay
             return;
         }
@@ -256,7 +257,7 @@ $.Drawer.prototype = /** @lends OpenSeadragon.Drawer.prototype */{
         var i;
 
         element = $.getElement( element );
-        i = getOverlayIndex( this.overlays, element );
+        i = this.getOverlayIndex( element );
 
         if ( i >= 0 ) {
             this.overlays[ i ].update( location, placement );
@@ -297,7 +298,7 @@ $.Drawer.prototype = /** @lends OpenSeadragon.Drawer.prototype */{
         var i;
 
         element = $.getElement( element );
-        i = getOverlayIndex( this.overlays, element );
+        i = this.getOverlayIndex( element );
 
         if ( i >= 0 ) {
             this.overlays[ i ].destroy();
@@ -305,16 +306,6 @@ $.Drawer.prototype = /** @lends OpenSeadragon.Drawer.prototype */{
             this.updateAgain = true;
         }
         if( this.viewer ){
-            /**
-             * Raised when an overlay is removed from the viewer (see {@link OpenSeadragon.Drawer#removeOverlay}).
-             *
-             * @event remove-overlay
-             * @memberof OpenSeadragon.Viewer
-             * @type {object}
-             * @property {OpenSeadragon.Viewer} eventSource - A reference to the Viewer which raised the event.
-             * @property {Element} element - The overlay element.
-             * @property {?Object} userData - Arbitrary subscriber-defined object.
-             */
             this.viewer.raiseEvent( 'remove-overlay', {
                 element: element
             });
@@ -335,15 +326,6 @@ $.Drawer.prototype = /** @lends OpenSeadragon.Drawer.prototype */{
             this.updateAgain = true;
         }
         if( this.viewer ){
-            /**
-             * Raised when all overlays are removed from the viewer (see {@link OpenSeadragon.Drawer#clearOverlays}).
-             *
-             * @event clear-overlay
-             * @memberof OpenSeadragon.Viewer
-             * @type {object}
-             * @property {OpenSeadragon.Viewer} eventSource - A reference to the Viewer which raised the event.
-             * @property {?Object} userData - Arbitrary subscriber-defined object.
-             */
             this.viewer.raiseEvent( 'clear-overlay', {} );
         }
         return this;
@@ -383,7 +365,14 @@ $.Drawer.prototype = /** @lends OpenSeadragon.Drawer.prototype */{
         this.updateAgain = true;
         return this;
     },
-
+    /**
+     * Returns whether rotation is supported or not.
+     * @method
+     * @return {Boolean} True if rotation is supported.
+     */
+    canRotate: function() {
+        return this.useCanvas;
+    },
     /**
      * Forces the Drawer to update.
      * @method
@@ -395,33 +384,26 @@ $.Drawer.prototype = /** @lends OpenSeadragon.Drawer.prototype */{
         this.midUpdate = false;
         return this;
     },
-
-    /**
-     * Returns whether rotation is supported or not.
-     * @method
-     * @return {Boolean} True if rotation is supported.
-     */
-    canRotate: function() {
-        return this.useCanvas;
-    },
     draw:function(bounds) {
 
         this.updateAgain = false;
+        // First adjust the bounds according to the content bounds
+        // This will determine tile clipping
+//        bounds = bounds.clone();
+//        bounds.width *= this.contentBounds.width;
+//        bounds.height *= this.contentBounds.height;
+        //var zpr = this.zeroPixelRatio.times(this.contentBounds.width);
 
-        if( this.viewer ){
-            this.viewer.raiseEvent( 'update-viewport', {} );
-        }
+        bounds = this.scaleBoundsToContent(bounds);
 
-        // TODO : Precalculate
-        // All of these are constant values so can be precalculated
+        var zpr = this.zeroPixelRatio;
         var tileSource  = this.source;
-//        var pixelRatio  = tileSource.getPixelRatio(0);
-//        var lowestLevel = Math.max( this.source.minLevel, this.lowestLevelK);
-        var lowestLevel = this.lowestLevelK2;
-        // deltaPixels depends on the current zoom level
-        var deltaPixels = this.viewport.deltaPixelsFromPoints( this.zeroPixelRatio, true);
-        var zeroRatioC  = deltaPixels.x;
 
+        // deltaPixels depends on the current zoom level
+        var deltaPixels = this.deltaPixelsFromPoints( zpr, true);
+        var currentZeroRatio  = deltaPixels.x;
+        // This is entirely linear and dependent on the zoom level and container size
+        var czrOOMPR = deltaPixels.x * this.oneOverMinPixelRatio;
         //$.console.log('PR %O. DP %O. ZRC %s',pixelRatio, deltaPixels, zeroRatioC);
         var tile,
             currentTime     = $.now(),
@@ -429,7 +411,7 @@ $.Drawer.prototype = /** @lends OpenSeadragon.Drawer.prototype */{
             viewportBR      = bounds.getBottomRight(),
             highestLevel    = Math.min(
                 tileSource.maxLevel,
-                Math.abs(Math.floor( Math.log( zeroRatioC * this.oneOverMinPixelRatio ) / Math.log( 2 ) ))
+                Math.abs(Math.floor( Math.log( czrOOMPR ) / Math.log( 2 ) ))
             ),
             degrees         = this.viewport.degrees;
 
@@ -466,11 +448,11 @@ $.Drawer.prototype = /** @lends OpenSeadragon.Drawer.prototype */{
             viewportBR.y = Math.min( viewportBR.y, this.normHeight );
         }
 
-        lowestLevel = Math.min( lowestLevel, highestLevel );
+        var lowestLevel = Math.min( this.lowestLevelK2, highestLevel );
 
         var best = this.updateVisibilityAndLevels(lowestLevel, highestLevel, viewportTL, viewportBR, currentTime);
         this.drawTiles();
-        drawOverlays( this.viewport, this.overlays, this.container );
+        this.drawOverlays();
 
         //TODO
         if ( best ) {
@@ -479,6 +461,21 @@ $.Drawer.prototype = /** @lends OpenSeadragon.Drawer.prototype */{
             this.updateAgain = true;
         }
 
+    },
+    scaleBoundsToContent:function(bounds) {
+        // scale content bounds by zoom level
+        var scaledContentBounds = this.contentBounds.scale(1 / this.viewport.getZoom(true));
+
+        // scale viewport bounds for entire content to local content
+        this.scaledBounds = bounds.clone();
+        this.scaledBounds.x -= scaledContentBounds.x;
+        this.scaledBounds.y -= scaledContentBounds.y;
+        this.scaledBounds.x /= scaledContentBounds.width;
+        this.scaledBounds.y /= scaledContentBounds.width;
+        this.scaledBounds.width /= this.contentBounds.width;
+        this.scaledBounds.height /= this.contentBounds.width;
+
+        return this.scaledBounds;
     },
     loadTile:function(tile, time) {
         if(tile.loading) {
@@ -497,22 +494,24 @@ $.Drawer.prototype = /** @lends OpenSeadragon.Drawer.prototype */{
         var level,
             best = null,
             haveDrawn       = false,
-            renderPixelRatioC,
-            renderPixelRatioT,
-            zeroRatioT,
+            currentRenderPixelRatio,
+            targetRenderPixelRatio,
+            targetZeroRatio,
             optimalRatio,
             levelOpacity,
             levelVisibility;
 
         var drawLevel;
+        var sourcePixelRatio;
         // Loop from the highest resolution to the lowest resolution level
         for ( level = highestLevel; level >= lowestLevel; level-- ) {
             drawLevel = false;
 
+            sourcePixelRatio = this.getSourcePixelRatio(level);
             //Avoid calculations for draw if we have already drawn this
-            renderPixelRatioC = this.viewport.deltaPixelsFromPoints( this.source.getPixelRatio( level ), true ).x;
+            currentRenderPixelRatio = this.deltaPixelsFromPoints( sourcePixelRatio, true ).x;
 
-            if ( ( !haveDrawn && (renderPixelRatioC >= this.minPixelRatio) ) || ( level == lowestLevel ) ) {
+            if ( ( !haveDrawn && (currentRenderPixelRatio >= this.minPixelRatio) ) || ( level == lowestLevel ) ) {
                 drawLevel = true;
                 haveDrawn = true;
             } else if ( !haveDrawn ) {
@@ -520,15 +519,16 @@ $.Drawer.prototype = /** @lends OpenSeadragon.Drawer.prototype */{
             }
 
             //Perform calculations for draw if we haven't drawn this
-            renderPixelRatioT = this.viewport.deltaPixelsFromPoints( this.source.getPixelRatio( level ), false ).x;
-            zeroRatioT      = this.viewport.deltaPixelsFromPoints(
-                this.source.getPixelRatio( Math.max( this.source.getClosestLevel( this.viewport.containerSize ) - 1, 0 ) ), false ).x;
+            targetRenderPixelRatio = this.deltaPixelsFromPoints( sourcePixelRatio, false ).x;
+            // No idea what this is supposed to work out
+            targetZeroRatio        = this.deltaPixelsFromPoints(
+                this.getSourcePixelRatio( Math.max( this.source.getClosestLevel( this.viewport.containerSize ) - 1, 0 ) ), false ).x;
 
-            optimalRatio    = this.immediateRender ? 1 : zeroRatioT;
+            optimalRatio    = this.immediateRender ? 1 : targetZeroRatio;
 
-            levelOpacity    = Math.min( 1, ( renderPixelRatioC - 0.5 ) * 2 );
+            levelOpacity    = Math.min( 1, ( currentRenderPixelRatio - 0.5 ) * 2 );
 
-            levelVisibility = optimalRatio / Math.abs( optimalRatio - renderPixelRatioT );
+            levelVisibility = optimalRatio / Math.abs( optimalRatio - targetRenderPixelRatio );
 
             //TODO
             best = this.updateLevel(haveDrawn, drawLevel, level, levelOpacity, levelVisibility, viewportTL, viewportBR, currentTime, best);
@@ -566,12 +566,6 @@ $.Drawer.prototype = /** @lends OpenSeadragon.Drawer.prototype */{
 
             if( this.debugMode ){
                 this.renderer.debug( this, tile, this.lastDrawn.length, i );
-            }
-
-            if( this.viewer ){
-                this.viewer.raiseEvent( 'tile-drawn', {
-                    tile: tile
-                });
             }
         }
     },
@@ -657,24 +651,8 @@ $.Drawer.prototype = /** @lends OpenSeadragon.Drawer.prototype */{
     },
     updateLevel:function( haveDrawn, drawLevel, level, levelOpacity, levelVisibility, viewportTL, viewportBR, currentTime, best ){
 
-        var x, y,
-            tileTL,
-            tileBR,
-            numberOfTiles,
-            viewportCenter  = this.viewport.pixelFromPoint( this.viewport.getCenter() );
-
-        if( this.viewer ){
-            this.viewer.raiseEvent( 'update-level', {
-                havedrawn: haveDrawn,
-                level: level,
-                opacity: levelOpacity,
-                visibility: levelVisibility,
-                topleft: viewportTL,
-                bottomright: viewportBR,
-                currenttime: currentTime,
-                best: best
-            });
-        }
+        var x, y, tileTL, tileBR, numberOfTiles,
+            viewportCenter  = this.pixelFromPoint( this.viewport.getCenter(true) );
 
         //OK, a new drawing so do your calculations
         tileTL    = this.source.getTileAtPoint( level, viewportTL );
@@ -700,14 +678,7 @@ $.Drawer.prototype = /** @lends OpenSeadragon.Drawer.prototype */{
     },
     updateTile:function( drawLevel, haveDrawn, x, y, level, levelOpacity, levelVisibility, viewportCenter, numberOfTiles, currentTime, best){
 
-        var tile = this.getTile( x, y, level, this.source, this.tilesMatrix, currentTime, numberOfTiles, this.normHeight ),
-            drawTile = drawLevel;
-
-        if( this.viewer ){
-            this.viewer.raiseEvent( 'update-tile', {
-                tile: tile
-            });
-        }
+        var tile = this.getTile( x, y, level, this.source, this.tilesMatrix, currentTime, numberOfTiles, this.normHeight );
 
         this.setCoverage( level, x, y, false );
 
@@ -716,20 +687,20 @@ $.Drawer.prototype = /** @lends OpenSeadragon.Drawer.prototype */{
             return best;
         }
 
-        if ( haveDrawn && !drawTile ) {
+        if ( haveDrawn && !drawLevel ) {
             if ( this.isCovered( level, x, y ) ) {
                 this.setCoverage( level, x, y, true );
             } else {
-                drawTile = true;
+                drawLevel = true;
             }
         }
 
-        if ( !drawTile ) {
+        if ( !drawLevel ) {
             return best;
         }
 
         tile.visibility = levelVisibility;
-        this.positionTile( tile, this.source.tileOverlap, this.viewport, viewportCenter);
+        this.positionTile( tile, this.source.tileOverlap, viewportCenter);
 
         if ( tile.loaded ) {
             if(this.blendTime) {
@@ -751,7 +722,7 @@ $.Drawer.prototype = /** @lends OpenSeadragon.Drawer.prototype */{
     getTile:function( x, y, level, tileSource, tilesMatrix, time, numTiles, normHeight ) {
         var xMod,
             yMod,
-            bounds,
+            tileBounds,
             exists,
             url,
             tile;
@@ -766,14 +737,14 @@ $.Drawer.prototype = /** @lends OpenSeadragon.Drawer.prototype */{
         if ( !tilesMatrix[ level ][ x ][ y ] ) {
             xMod    = ( numTiles.x + ( x % numTiles.x ) ) % numTiles.x;
             yMod    = ( numTiles.y + ( y % numTiles.y ) ) % numTiles.y;
-            bounds  = tileSource.getTileBounds( level, xMod, yMod );
+            tileBounds  = tileSource.getTileBounds( level, xMod, yMod );
             exists  = tileSource.tileExists( level, xMod, yMod );
             url     = tileSource.getTileUrl( level, xMod, yMod );
 
-            bounds.x += 1.0 * ( x - xMod ) / numTiles.x;
-            bounds.y += normHeight * ( y - yMod ) / numTiles.y;
+            tileBounds.x += 1.0 * ( x - xMod ) / numTiles.x;
+            tileBounds.y += normHeight * ( y - yMod ) / numTiles.y;
 
-            tilesMatrix[ level ][ x ][ y ] = new $.Tile( level, x, y, bounds, exists, url );
+            tilesMatrix[ level ][ x ][ y ] = new $.Tile( level, x, y, tileBounds, exists, url );
         }
 
         tile = tilesMatrix[ level ][ x ][ y ];
@@ -822,7 +793,7 @@ $.Drawer.prototype = /** @lends OpenSeadragon.Drawer.prototype */{
         this.lastDrawn.push( tile );
 
         if ( opacity == 1 ) {
-            this.setCoverage( this.coverage, level, x, y, true );
+            this.setCoverage( level, x, y, true );
         } else if ( deltaTime < blendTimeMillis ) {
             return true;
         }
@@ -836,13 +807,13 @@ $.Drawer.prototype = /** @lends OpenSeadragon.Drawer.prototype */{
      * @param viewport
      * @param viewportCenter
      */
-    positionTile: function( tile, overlap, viewport, viewportCenter ){
+    positionTile: function( tile, overlap, viewportCenter ){
         var boundsTL            = tile.bounds.getTopLeft(),
             boundsSize          = tile.bounds.getSize(),
-            currentPosition     = viewport.pixelFromPoint( boundsTL, true ),
-            targetPosition      = viewport.pixelFromPoint( boundsTL, false ),
-            currentSize         = viewport.deltaPixelsFromPoints( boundsSize, true ),
-            targetSize          = viewport.deltaPixelsFromPoints( boundsSize, false ),
+            currentPosition     = this.pixelFromPoint( boundsTL, true ),
+            targetPosition      = this.pixelFromPoint( boundsTL, false ),
+            currentSize         = this.deltaPixelsFromPoints( boundsSize, true ),
+            targetSize          = this.deltaPixelsFromPoints( boundsSize, false ),
             tileCenter          = targetPosition.plus( targetSize.divide( 2 ) ),
             tileDistance        = viewportCenter.distanceTo( tileCenter );
 
@@ -921,7 +892,6 @@ $.Drawer.prototype = /** @lends OpenSeadragon.Drawer.prototype */{
                 );
         }
     },
-
     /**
      * @private
      * @inner
@@ -931,54 +901,74 @@ $.Drawer.prototype = /** @lends OpenSeadragon.Drawer.prototype */{
      */
     resetCoverage:function( level ) {
         this.coverage[ level ] = {};
+    },
+    deltaPixelsFromPoints:function(points, useCurrentZoom) {
+        // This is used for scaling content
+        var zoomedContainerSize = this.viewport.containerSize.x * this.viewport.getZoom( useCurrentZoom );
+        return points.times( zoomedContainerSize * this.contentBounds.width );
+    },
+    pixelFromPoint: function(point, useCurrentBounds) {
+        // This is used to position tiles and overlays
+        point = point.times(this.contentBounds.width);
+        point = point.plus(this.contentBounds.getTopLeft());
+        return this.viewport.pixelFromPoint(point, useCurrentBounds);
+    },
+    getSourcePixelRatio:function(level) {
+        return this.source.getPixelRatio(level);
+    },
+    debugRender:function() {
+        var ctx = this.context;
+        ctx.save();
+        ctx.lineWidth = 1;
+        ctx.font = 'small-caps 14px inconsolata';
+        ctx.strokeStyle = "#FF0000";
+        ctx.fillStyle = this.debugTextColor;
+
+        var tl = this.pixelFromPoint(new $.Point(0,0));
+        var br = this.deltaPixelsFromPoints(new $.Point(1,1/this.source.aspectRatio));
+        ctx.strokeRect(tl.x,tl.y, br.x, br.y);
+        this.viewer.renderDebugLine("Content Bounds: " + this.contentBounds.toStringFixed());
+        var b = this.viewport.getBounds(true);
+        this.viewer.renderDebugLine("Scaled Bounds: " + this.scaledBounds.toStringFixed());
+        this.viewer.renderDebugLine("TL: " + tl.toStringFixed());
+        this.viewer.renderDebugLine("BR: " + br.toStringFixed());
+        ctx.restore();
+    },
+
+    /**
+     * @private
+     * @inner
+     * Determines the 'z-index' of the given overlay.  Overlays are ordered in
+     * a z-index based on the order they are added to the Drawer.
+     */
+    getOverlayIndex:function( element ) {
+        var i;
+        for ( i = this.overlays.length - 1; i >= 0; i-- ) {
+            if ( this.overlays[ i ].element == element ) {
+                return i;
+            }
+        }
+
+        return -1;
+    },
+    drawOverlays:function(){
+        var i,
+            length = this.overlays.length;
+        for ( i = 0; i < length; i++ ) {
+            this.drawOverlay( this.overlays[ i ]);
+        }
+    },
+    drawOverlay:function( overlay){
+        overlay.position = this.pixelFromPoint( overlay.bounds.getTopLeft(), true );
+        overlay.size     = this.deltaPixelsFromPoints( overlay.bounds.getSize(), true );
+        overlay.drawHTML( this.container, this.viewport );
     }
-
-
 
 };
 
-
-/**
- * @private
- * @inner
- * Determines the 'z-index' of the given overlay.  Overlays are ordered in
- * a z-index based on the order they are added to the Drawer.
- */
-function getOverlayIndex( overlays, element ) {
-    var i;
-    for ( i = overlays.length - 1; i >= 0; i-- ) {
-        if ( overlays[ i ].element == element ) {
-            return i;
-        }
-    }
-
-    return -1;
-}
-
-function drawOverlays( viewport, overlays, container ){
-    var i,
-        length = overlays.length;
-    for ( i = 0; i < length; i++ ) {
-        drawOverlay( viewport, overlays[ i ], container );
-    }
-}
-
-function drawOverlay( viewport, overlay, container ){
-
-    overlay.position = viewport.pixelFromPoint(
-        overlay.bounds.getTopLeft(),
-        true
-    );
-    overlay.size     = viewport.deltaPixelsFromPoints(
-        overlay.bounds.getSize(),
-        true
-    );
-    overlay.drawHTML( container, viewport );
-}
-
 function offsetForRotation( tile, canvas, context, degrees ){
-    var cx = canvas.width >> 1,
-        cy = canvas.height >> 1,
+    var cx = canvas.width * 0.5,
+        cy = canvas.height * 0.5,
         px = tile.position.x - cx,
         py = tile.position.y - cy;
 
@@ -991,8 +981,8 @@ function offsetForRotation( tile, canvas, context, degrees ){
 }
 
 function restoreRotationChanges( tile, canvas, context ){
-    var cx = canvas.width >> 1,
-        cy = canvas.height >> 1,
+    var cx = canvas.width * 0.5,
+        cy = canvas.height * 0.5,
         px = tile.position.x + cx,
         py = tile.position.y + cy;
 

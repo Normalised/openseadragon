@@ -150,7 +150,7 @@ $.Viewport.prototype = /** @lends OpenSeadragon.Viewport.prototype */{
         var width  = this.homeZoomInverse,
             height = width / this.containerAspectRatio;
 
-        $.console.log('Get Home Bounds %s. Size %s,%s',this.homeBounds.toStringRounded(),width,height);
+//        $.console.log('Get Home Bounds %s. Size %s,%s',this.homeBounds.toStringRounded(),width,height);
         var hb = new $.Rect(
             this.homeBoundsCenter.x - ( width * 0.5 ),
             this.homeBoundsCenter.y - ( height * 0.5 ),
@@ -158,7 +158,7 @@ $.Viewport.prototype = /** @lends OpenSeadragon.Viewport.prototype */{
             height
         );
 
-        $.console.log('Calc HB %s', hb.toStringRounded());
+//        $.console.log('Calc HB %s', hb.toStringRounded());
         return hb;
     },
 
@@ -286,11 +286,7 @@ $.Viewport.prototype = /** @lends OpenSeadragon.Viewport.prototype */{
      * @param {Boolean} current - Pass true for the current location; defaults to false (target location).
      */
     getZoom: function( current ) {
-        if ( current ) {
-            return this.zoomSpring.current.value;
-        } else {
-            return this.zoomSpring.target.value;
-        }
+        return current ? this.zoomSpring.current.value : this.zoomSpring.target.value;
     },
 
     /**
@@ -302,11 +298,8 @@ $.Viewport.prototype = /** @lends OpenSeadragon.Viewport.prototype */{
 
         //$.console.log('Apply Constraints');
 
-        var actualZoom = this.getZoom(),
-            constrainedZoom = Math.max(
-                Math.min( actualZoom, this.getMaxZoom() ),
-                this.getMinZoom()
-            ),
+        var actualZoom = this.getZoom(false),
+            constrainedZoom = Math.max( Math.min( actualZoom, this.getMaxZoom() ), this.getMinZoom() ),
             bounds,
             horizontalThreshold,
             verticalThreshold,
@@ -321,7 +314,7 @@ $.Viewport.prototype = /** @lends OpenSeadragon.Viewport.prototype */{
             this.zoomTo( constrainedZoom, this.zoomPoint, immediately );
         }
 
-        bounds = this.getBounds();
+        bounds = this.getBounds(false);
 
         horizontalThreshold = this.visibilityRatio * bounds.width;
         verticalThreshold   = this.visibilityRatio * bounds.height;
@@ -635,13 +628,13 @@ $.Viewport.prototype = /** @lends OpenSeadragon.Viewport.prototype */{
             newBounds = oldBounds,
             widthDeltaFactor;
 
-        this.updateContainerSize(newContainerSize);
 
         if ( maintain ) {
             widthDeltaFactor = newContainerSize.x / this.containerSize.x;
             newBounds.width  = oldBounds.width * widthDeltaFactor;
             newBounds.height = newBounds.width / this.containerAspectRatio;
         }
+        this.updateContainerSize(newContainerSize);
 
         if( this.viewer ){
             this.viewer.raiseEvent( 'resize', {
@@ -679,6 +672,7 @@ $.Viewport.prototype = /** @lends OpenSeadragon.Viewport.prototype */{
             newContainerSize.y
         );
 
+        $.console.log('Update Container Size %s',this.containerSize.toStringRounded(true));
         this.containerAspectRatio = newContainerSize.x / newContainerSize.y;
         this.updateHomeZoom();
     },
@@ -726,9 +720,7 @@ $.Viewport.prototype = /** @lends OpenSeadragon.Viewport.prototype */{
      * @param {Boolean} current - Pass true for the current location; defaults to false (target location).
      */
     deltaPixelsFromPoints: function( deltaPoints, current ) {
-        return deltaPoints.times(
-            this.containerSize.x * this.getZoom( current )
-        );
+        return deltaPoints.times( this.containerSize.x * this.getZoom( current ) );
     },
 
     /**
@@ -749,7 +741,6 @@ $.Viewport.prototype = /** @lends OpenSeadragon.Viewport.prototype */{
      */
     pixelFromPoint: function( point, current ) {
         var bounds = this.getBounds( current );
-        //$.console.log('Pixel from Point %O. Bounds %O ',point, bounds);
         return point.minus( bounds.getTopLeft() ).times( this.containerSize.x / bounds.width );
     },
 

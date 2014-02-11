@@ -929,7 +929,7 @@ $.extend( $.Viewer.prototype, $.EventSource.prototype, $.ControlDock.prototype, 
         return this.drawers[0].canRotate();
     },
     update:function() {
-        updateDrawers(this);
+        this.updateDrawers();
     },
     needsDrawUpdate:function() {
         if(this.drawers[0]) {
@@ -965,7 +965,70 @@ $.extend( $.Viewer.prototype, $.EventSource.prototype, $.ControlDock.prototype, 
         for ( i = this.controls.length - 1; i >= 0; i-- ) {
             this.controls[ i ].setOpacity( 1.0 );
         }
+    },
+    updateDrawers:function() {
+        //$.console.log('Update Drawers %s',viewer.drawers.length);
+        // Because the viewer now controls the drawing context, we check here if the container has been resized and
+        // resize the canvas aka 'renderingSurface' accordingly
+
+        //TODO
+        if ( this.useCanvas ) {
+            var viewportSize    = this.viewport.containerSize;
+            if( this.canvas.width  != viewportSize.x || this.canvas.height != viewportSize.y ) {
+                $.console.log('Resize canvas %s,%s to viewport %s for viewer.',this.canvas.width,this.canvas.height,viewportSize.toString());
+                this.canvas.width  = viewportSize.x;
+                this.canvas.height = viewportSize.y;
+            }
+
+            // Clear the surface ready to redraw
+            this.renderingSurface.clearRect( 0, 0, viewportSize.x, viewportSize.y );
+        }
+
+        var viewportBounds  = this.viewport.getBounds( true );
+        var numSections = this.drawers.length;
+
+        for(var i=0;i<numSections;i++) {
+            this.drawers[i].update(viewportBounds);
+        }
+
+        if(this.debugMode) {
+            this.debugRender();
+        }
+    },
+    debugRender:function() {
+        var ctx = this.renderingSurface;
+        ctx.save();
+        ctx.lineWidth = 2;
+        ctx.font = 'small-caps 16px inconsolata';
+        var lineHeight = 14;
+        if(this.renderDebugLineIndex > 0) {
+            ctx.fillStyle = "#000000";
+            ctx.globalAlpha = 0.6;
+            ctx.fillRect(0,0,300,(this.renderDebugLineIndex * lineHeight) + 10);
+            ctx.globalAlpha = 1.0;
+        }
+        ctx.strokeStyle = "#FF00FF";
+        ctx.fillStyle = "#FF0077";
+
+        this.renderDebugLineIndex = 0;
+        this.renderDebugLine( "Container: " + this.viewport.containerSize.toString());
+        this.renderDebugLine( "Zoom: " + Math.round(this.viewport.getZoom(true) * 100) + "%");
+        this.renderDebugLine( "Viewport Bounds: " + this.viewport.getBounds(true).toStringRounded());
+        this.renderDebugLine( "Center: " + this.viewport.getCenter(true).toStringRounded());
+        this.renderDebugLine( "Home Bounds: " + this.viewport.homeBounds.toStringRounded());
+        this.renderDebugLine( "Get Home   : " + this.viewport.getHomeBounds().toStringRounded());
+        this.renderDebugLine( "Center Spring   : " + this.viewport.centerSpringX.current.value.toFixed(3) + ", " + this.viewport.centerSpringY.current.value.toFixed(3));
+
+        for(var i=0;i<this.drawers.length;i++) {
+            this.drawers[i].debugRender();
+        }
+        ctx.restore();
+    },
+    renderDebugLine:function(text) {
+        this.renderDebugLineIndex++;
+        this.renderingSurface.fillText(text, 0, this.renderDebugLineIndex * 14);
     }
+
 });
 
 
@@ -1167,16 +1230,6 @@ function openTileSource( viewer, source ) {
 //    }
     VIEWERS[ _this.hash ] = _this;
 
-    /**
-     * Raised when the viewer has opened and loaded one or more TileSources.
-     *
-     * @event open
-     * @memberof OpenSeadragon.Viewer
-     * @type {object}
-     * @property {OpenSeadragon.Viewer} eventSource - A reference to the Viewer which raised the event.
-     * @property {OpenSeadragon.TileSource} source
-     * @property {?Object} userData - Arbitrary subscriber-defined object.
-     */
     _this.raiseEvent( 'open', { source: source } );
 
     return _this;
@@ -1208,7 +1261,7 @@ function createDrawers(viewer, tileSources) {
     viewer.renderingSurface = renderContainer.getContext("2d");
 
     var gridColours = ['#00FF00','#FFFF00'];
-
+    var textColours = ['#FF7700','#77FF00'];
     var i = 0;
     var source = null;
     // First need to find out the total size of all the tileSources when layed out according to collectionLayout
@@ -1239,17 +1292,28 @@ function createDrawers(viewer, tileSources) {
     for(i=0;i<tileSources.length;i++) {
         source = tileSources[i];
         var gridColor = gridColours[i % gridColours.length];
+        var textColor = textColours[i % textColours.length];
 
         // Now we have the total content size we create content bounds for each drawer
         // The content bounds are rectangles which define how much each tile source / drawer
         // covers of the whole content area.
         // e.g.
         // For a single source the bounds will be 0,0 -> 1,1
-        // For two sources layed out horizontally which have equal dimensions they will be
+        // For two sources laid out horizontally which have equal dimensions they will be
         // 0,0 -> 0.5,1  and  0.5,0 -> 1,1
         var offset = sourceOffsets[i];
+        if(viewer.collectionLayout === $.LAYOUT.HORIZONTAL) {
+            offset.y +=  (totalContentSize.y - source.dimensions.y) * 0.5;
+        } else {
+            offset.x += (totalContentSize.x - source.dimensions.x) * 0.5;
+        }
         var contentBounds = new $.Rect(offset.x / totalContentSize.x,offset.y / totalContentSize.y,
                                        source.dimensions.x / totalContentSize.x, source.dimensions.y / totalContentSize.y);
+
+        // TEST : Try different content bounds settings
+//        contentBounds.width = 1;
+////        contentBounds.height = 1;
+//        contentBounds.x = 0.5;
         $.console.log('Content Bounds %s', contentBounds.toString());
 
         drawer = new $.Drawer({
@@ -1271,7 +1335,8 @@ function createDrawers(viewer, tileSources) {
             minPixelRatio:      viewer.minPixelRatio,
             timeout:            viewer.timeout,
             debugMode:          viewer.debugMode,
-            debugGridColor:     gridColor
+            debugGridColor:     gridColor,
+            debugTextColor:     textColor
         });
 
         drawers.push(drawer);
@@ -1518,52 +1583,6 @@ function updateMulti( viewer ) {
     }
 }
 
-function updateDrawers( viewer ) {
-    //$.console.log('Update Drawers %s',viewer.drawers.length);
-    // Because the viewer now controls the drawing context, we check here if the container has been resized and
-    // resize the canvas aka 'renderingSurface' accordingly
-
-    //TODO
-    if ( viewer.useCanvas ) {
-        var viewportSize    = viewer.viewport.containerSize;
-        if( viewer.canvas.width  != viewportSize.x || viewer.canvas.height != viewportSize.y ) {
-            $.console.log('Resize canvas %s,%s to viewport %s for viewer.',viewer.canvas.width,viewer.canvas.height,viewportSize.toString());
-            viewer.canvas.width  = viewportSize.x;
-            viewer.canvas.height = viewportSize.y;
-        }
-
-        // Clear the surface ready to redraw
-        viewer.renderingSurface.clearRect( 0, 0, viewportSize.x, viewportSize.y );
-    }
-
-    var viewportBounds  = viewer.viewport.getBounds( true );
-    var numSections = viewer.drawers.length;
-
-    for(var i=0;i<numSections;i++) {
-        viewer.drawers[i].update(viewportBounds);
-    }
-
-    if(viewer.debugMode) {
-        renderDebugInfo(viewer);
-    }
-}
-
-function renderDebugInfo(viewer) {
-    var ctx = viewer.renderingSurface;
-    ctx.save();
-    ctx.lineWidth = 2;
-    ctx.font = 'small-caps 14px inconsolata';
-    ctx.strokeStyle = "#FF00FF";
-    ctx.fillStyle = "#FF0077";
-
-    ctx.fillText( "Zoom: " + Math.round(viewer.viewport.getZoom(true) * 100), 0, 12 );
-    ctx.fillText( "Bounds: " + viewer.viewport.getBounds(true).toStringRounded(), 0, 24 );
-    ctx.fillText( "Center: " + viewer.viewport.getCenter(true).toStringRounded(), 0, 36 );
-    ctx.fillText( "Home Bounds: " + viewer.viewport.homeBounds.toStringRounded(), 0, 48 );
-    ctx.fillText( "Get Home   : " + viewer.viewport.getHomeBounds().toStringRounded(), 0, 60 );
-    ctx.restore();
-}
-
 function updateOnce( viewer ) {
 
     var containerSize,
@@ -1598,14 +1617,14 @@ function updateOnce( viewer ) {
     }
 
     if ( animated ) {
-        updateDrawers(viewer);
+        viewer.updateDrawers();
         if( viewer.navigator ){
             viewer.navigator.update( viewer.viewport );
         }
 
         viewer.raiseEvent( "animation" );
     } else if ( ViewerStateMap[ viewer.hash ].forceRedraw || viewer.needsDrawUpdate() ) {
-        updateDrawers(viewer);
+        viewer.updateDrawers();
         if( viewer.navigator ){
             viewer.navigator.update( viewer.viewport );
         }
