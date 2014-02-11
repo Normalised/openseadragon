@@ -236,6 +236,9 @@ $.Rect.prototype = /** @lends OpenSeadragon.Rect.prototype */{
     clone:function() {
         return new $.Rect(this.x,this.y,this.width,this.height);
     },
+    scale:function(s) {
+        return new $.Rect(this.x * s, this.y * s, this.width * s, this.height * s);
+    },
     /**
      * Provides a string representation of the rectangle which is useful for
      * debugging.
@@ -259,6 +262,14 @@ $.Rect.prototype = /** @lends OpenSeadragon.Rect.prototype */{
             this.y + "," +
             this.width + "x" +
             this.height +
+            "]";
+    },
+    toStringFixed:function() {
+        return "[" +
+            this.x.toFixed(2) + "," +
+            this.y.toFixed(2) + "," +
+            this.width.toFixed(2) + "x" +
+            this.height.toFixed(2) +
             "]";
     }
 };
