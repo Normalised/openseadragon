@@ -323,6 +323,9 @@ $.extend( $.Viewer.prototype, $.EventSource.prototype, $.ControlDock.prototype, 
      * @fires OpenSeadragon.Viewer.event:close
      */
     close: function ( ) {
+
+        $.console.log('Close Viewer');
+
         if ( this._updateRequestId !== null ) {
             $.cancelAnimationFrame( this._updateRequestId );
             this._updateRequestId = null;
@@ -334,7 +337,7 @@ $.extend( $.Viewer.prototype, $.EventSource.prototype, $.ControlDock.prototype, 
 
         if ( this.drawers ) {
             for(var i=0;i<this.drawers.length;i++) {
-                this.drawers[i].clearOverlays();
+                this.drawers[i].cleanup();
             }
         }
 
@@ -948,6 +951,31 @@ $.extend( $.Viewer.prototype, $.EventSource.prototype, $.ControlDock.prototype, 
     addOverlay:function(sourceIndex, element, location, overlayPlacement) {
         $.console.log('Add Overlay to source %s. Element %O. Location %O. Placement %s',sourceIndex, element, location, overlayPlacement);
     },
+    addLayerToSource:function(sourceIndex, renderable) {
+        var drawer = this.drawers[sourceIndex];
+        if(drawer === null) {
+            $.console.warn('Drawer is null for sourceIndex %s',sourceIndex);
+        } else {
+            $.console.log('Add Layer To Source %s %O',sourceIndex, renderable);
+            drawer.addLayer(renderable);
+        }
+    },
+    removeLayerFromSource:function(sourceIndex, renderable) {
+        var drawer = this.drawers[sourceIndex];
+        if(drawer === null) {
+            $.console.warn('Drawer is null for sourceIndex %s',sourceIndex);
+        } else {
+            drawer.removeLayer(renderable);
+        }
+    },
+    showLayers:function(show) {
+        for (var i = 0; i < this.drawers.length; i++) {
+            this.drawers[i].showLayers(show);
+        }
+        if(!this.animated) {
+            this.update();
+        }
+    },
     beginControlsAutoHide:function() {
         if ( !this.autoHideControls ) {
             return;
@@ -974,10 +1002,10 @@ $.extend( $.Viewer.prototype, $.EventSource.prototype, $.ControlDock.prototype, 
         //TODO
         if ( this.useCanvas ) {
             var viewportSize    = this.viewport.containerSize;
-            if( this.canvas.width  != viewportSize.x || this.canvas.height != viewportSize.y ) {
-                $.console.log('Resize canvas %s,%s to viewport %s for viewer.',this.canvas.width,this.canvas.height,viewportSize.toString());
-                this.canvas.width  = viewportSize.x;
-                this.canvas.height = viewportSize.y;
+            if( this.renderContainer.width  != viewportSize.x || this.renderContainer.height != viewportSize.y ) {
+                $.console.log('Resize canvas %s,%s to viewport %s for viewer.',this.renderContainer.width,this.renderContainer.height,viewportSize.toString());
+                this.renderContainer.width  = viewportSize.x;
+                this.renderContainer.height = viewportSize.y;
             }
 
             // Clear the surface ready to redraw
@@ -1027,6 +1055,232 @@ $.extend( $.Viewer.prototype, $.EventSource.prototype, $.ControlDock.prototype, 
     renderDebugLine:function(text) {
         this.renderDebugLineIndex++;
         this.renderingSurface.fillText(text, 0, this.renderDebugLineIndex * 14);
+    },
+    createDrawers:function(tileSources) {
+
+        if(!$.isArray(tileSources)) {
+            $.console.log('Wrapping tileSources into array %O', tileSources);
+            tileSources = [tileSources];
+        }
+        $.console.log('Create Drawers for Viewer %O with sources %O',this, tileSources);
+
+        var drawers = [];
+        var drawer = null;
+
+        // Create the rendering elements
+        // TODO : Its only really IE 8 that doesn't support canvas but using this
+        // https://code.google.com/p/explorercanvas
+        // will allow canvas usage in IE, so add that and remove all the 'div' / html renderer support.
+        var useCanvas = $.supportsCanvas && this.useCanvas;
+        if(this.renderContainer !== null) {
+            this.renderContainer = $.makeNeutralElement( useCanvas ? "canvas" : "div" );
+            this.renderContainer.style.width     = "100%";
+            this.renderContainer.style.height    = "100%";
+            this.renderContainer.style.position  = "absolute";
+            $.getElement(this.canvas).appendChild( this.renderContainer );
+
+            //this.canvas = renderContainer;
+            this.renderingSurface = this.renderContainer.getContext("2d");
+        } else {
+            $.console.log('Re-using existing canvas / render container');
+        }
+
+        var gridColours = ['#00FF00','#FFFF00'];
+        var textColours = ['#FF7700','#77FF00'];
+        var i = 0;
+        var source = null;
+        // First need to find out the total size of all the tileSources when layed out according to collectionLayout
+        // At the moment only $.LAYOUT.HORIZONTAL and $.LAYOUT.VERTICAL are supported
+        var totalContentSize = new $.Point(0,0);
+        // How far away from 0,0 this source is
+        var sourceOffsets = [];
+        for(i=0;i<tileSources.length;i++) {
+            source = tileSources[i];
+            if(this.collectionLayout === $.LAYOUT.HORIZONTAL) {
+                sourceOffsets[i] = new $.Point(totalContentSize.x, 0);
+                totalContentSize.x += source.dimensions.x;
+                if(source.dimensions.y > totalContentSize.y) {
+                    totalContentSize.y = source.dimensions.y;
+                }
+            } else {
+                sourceOffsets[i] = new $.Point(0, totalContentSize.y);
+                totalContentSize.y += source.dimensions.y;
+                if(source.dimensions.x > totalContentSize.x) {
+                    totalContentSize.x = source.dimensions.x;
+                }
+            }
+        }
+
+        $.console.log('Total Content Size %s', totalContentSize.toString());
+        $.console.log('Source Offsets %O',sourceOffsets);
+
+        for(i=0;i<tileSources.length;i++) {
+            source = tileSources[i];
+            var gridColor = gridColours[i % gridColours.length];
+            var textColor = textColours[i % textColours.length];
+
+            // Now we have the total content size we create content bounds for each drawer
+            // The content bounds are rectangles which define how much each tile source / drawer
+            // covers of the whole content area.
+            // e.g.
+            // For a single source the bounds will be 0,0 -> 1,1
+            // For two sources laid out horizontally which have equal dimensions they will be
+            // 0,0 -> 0.5,1  and  0.5,0 -> 1,1
+            var offset = sourceOffsets[i];
+            if(this.collectionLayout === $.LAYOUT.HORIZONTAL) {
+                offset.y +=  (totalContentSize.y - source.dimensions.y) * 0.5;
+            } else {
+                offset.x += (totalContentSize.x - source.dimensions.x) * 0.5;
+            }
+            var contentBounds = new $.Rect(offset.x / totalContentSize.x,offset.y / totalContentSize.y,
+                source.dimensions.x / totalContentSize.x, source.dimensions.y / totalContentSize.y);
+
+            $.console.log('Content Bounds %s', contentBounds.toString());
+
+            drawer = new $.Drawer({
+                sourceIndex:        i,
+                viewer:             this,
+                source:             source,
+                contentBounds:      contentBounds,
+                viewport:           this.viewport,
+                element:            this.canvas,
+                canvas:             this.renderContainer,
+                overlays:           source.overlays,
+                maxImageCacheCount: this.maxImageCacheCount,
+                minZoomImageRatio:  this.minZoomImageRatio,
+                wrapHorizontal:     this.wrapHorizontal,
+                wrapVertical:       this.wrapVertical,
+                immediateRender:    this.immediateRender,
+                blendTime:          this.blendTime,
+                alwaysBlend:        this.alwaysBlend,
+                minPixelRatio:      this.minPixelRatio,
+                timeout:            this.timeout,
+                debugMode:          this.debugMode,
+                debugGridColor:     gridColor,
+                debugTextColor:     textColor
+            });
+
+            drawers.push(drawer);
+        }
+
+        return drawers;
+    },
+    openTileSource:function( source ) {
+
+        $.console.log('Viewer::openTileSource. Viewer %O. Source %O.',this, source);
+
+        var _this = this;
+
+        if ( this.source ) {
+            this.close( );
+        }
+
+        this.canvas.innerHTML = "";
+        this.prevContainerSize = _getSafeElemSize( _this.container );
+
+        if( this.collectionMode ) {
+
+            this.source = new $.TileSourceCollection({
+                rows: this.collectionRows,
+                layout: this.collectionLayout,
+                tileSize: this.collectionTileSize,
+                tileSources: source,
+                tileMargin: this.collectionTileMargin
+            });
+
+        } else if( source ){
+            this.source = source;
+        }
+
+        this.createViewport();
+
+        this.source.overlays = this.source.overlays || [];
+
+        this.drawers = this.createDrawers(this.collectionMode ? this.source.tileSources : this.source);
+
+        $.console.log('Created Drawers %O',this.drawers );
+        //Instantiate a navigator if configured
+        if ( this.showNavigator  && !this.collectionMode ){
+            this.createNavigator();
+        }
+
+        //Instantiate a referencestrip if configured
+        if ( this.showReferenceStrip  && !this.referenceStrip ){
+            this.createReferenceStrip();
+        }
+
+        ViewerStateMap[ _this.hash ].animating = false;
+        ViewerStateMap[ _this.hash ].forceRedraw = true;
+        _this._updateRequestId = scheduleUpdate( _this, updateMulti );
+
+        VIEWERS[ _this.hash ] = _this;
+
+        _this.raiseEvent( 'open', { source: source } );
+
+        return _this;
+    },
+    createViewport:function() {
+        // Specify common viewport options
+        var viewportOptions = {
+            containerSize:      this.prevContainerSize,
+            springStiffness:    this.springStiffness,
+            animationTime:      this.animationTime,
+            minZoomImageRatio:  this.minZoomImageRatio,
+            maxZoomPixelRatio:  this.maxZoomPixelRatio,
+            visibilityRatio:    this.visibilityRatio,
+            wrapHorizontal:     this.wrapHorizontal,
+            wrapVertical:       this.wrapVertical,
+            defaultZoomLevel:   this.defaultZoomLevel,
+            minZoomLevel:       this.minZoomLevel,
+            maxZoomLevel:       this.maxZoomLevel,
+            contentSize:        this.source.dimensions,
+            viewer:             this
+        };
+
+        this.viewport = this.viewport ? this.viewport : new $.Viewport(viewportOptions);
+
+        if( this.preserveViewport ){
+            this.viewport.resetContentSize( this.source.dimensions );
+        }
+    },
+    createNavigator:function() {
+        // Note: By passing the fully parsed source, the navigator doesn't
+        // have to load it again.
+        if ( this.navigator ) {
+            this.navigator.open( source );
+        } else {
+            this.navigator = new $.Navigator({
+                id:                this.navigatorId,
+                position:          this.navigatorPosition,
+                sizeRatio:         this.navigatorSizeRatio,
+                maintainSizeRatio: this.navigatorMaintainSizeRatio,
+                top:               this.navigatorTop,
+                left:              this.navigatorLeft,
+                width:             this.navigatorWidth,
+                height:            this.navigatorHeight,
+                autoResize:        this.navigatorAutoResize,
+                tileSources:       source,
+                tileHost:          this.tileHost,
+                prefixUrl:         this.prefixUrl,
+                overlays:          this.overlays,
+                viewer:            this
+            });
+        }
+    },
+    createReferenceStrip:function() {
+        this.referenceStrip = new $.ReferenceStrip({
+            id:          this.referenceStripElement,
+            position:    this.referenceStripPosition,
+            sizeRatio:   this.referenceStripSizeRatio,
+            scroll:      this.referenceStripScroll,
+            height:      this.referenceStripHeight,
+            width:       this.referenceStripWidth,
+            tileSources: this.tileSources,
+            tileHost:    this.tileHost,
+            prefixUrl:   this.prefixUrl,
+            overlays:    this.overlays,
+            viewer:      this
+        });
     }
 
 });
@@ -1065,7 +1319,7 @@ function tileSourceCreateSuccess(tileSource) {
         ViewerStateMap[ this.hash ].sequenceIndex = this.initialPage;
     }
 
-    openTileSource(this, tileSource);
+    this.openTileSource(tileSource);
 }
 
 function tileSourceCreateError(tileSource) {
@@ -1082,267 +1336,6 @@ function tileSourceCreateError(tileSource) {
      * @property {?Object} userData - Arbitrary subscriber-defined object.
      */
     this.raiseEvent( 'open-failed', event );
-}
-
-    /**
- * @function
- * @private
- */
-function openTileSource( viewer, source ) {
-
-    $.console.log('Viewer::openTileSource. Viewer %O. Source %O.',viewer, source);
-
-    var _this = viewer,
-        overlay,
-        i;
-
-    if ( _this.source ) {
-        _this.close( );
-    }
-
-    _this.canvas.innerHTML = "";
-    viewer.prevContainerSize = _getSafeElemSize( _this.container );
-
-    // Specify common viewport options
-    var viewportOptions = {
-        containerSize:      viewer.prevContainerSize,
-        springStiffness:    _this.springStiffness,
-        animationTime:      _this.animationTime,
-        minZoomImageRatio:  _this.minZoomImageRatio,
-        maxZoomPixelRatio:  _this.maxZoomPixelRatio,
-        visibilityRatio:    _this.visibilityRatio,
-        wrapHorizontal:     _this.wrapHorizontal,
-        wrapVertical:       _this.wrapVertical,
-        defaultZoomLevel:   _this.defaultZoomLevel,
-        minZoomLevel:       _this.minZoomLevel,
-        maxZoomLevel:       _this.maxZoomLevel,
-        viewer:             _this
-    };
-
-    if( _this.collectionMode ) {
-
-        _this.source = new $.TileSourceCollection({
-            rows: _this.collectionRows,
-            layout: _this.collectionLayout,
-            tileSize: _this.collectionTileSize,
-            tileSources: source,
-            tileMargin: _this.collectionTileMargin
-        });
-
-    } else if( source ){
-        _this.source = source;
-    }
-
-    viewportOptions.contentSize = _this.source.dimensions;
-
-    $.console.log('Content Size %O',viewportOptions.contentSize);
-
-    _this.viewport = _this.viewport ? _this.viewport : new $.Viewport(viewportOptions);
-
-    if( _this.preserveViewport ){
-        _this.viewport.resetContentSize( _this.source.dimensions );
-    }
-
-    _this.source.overlays = _this.source.overlays || [];
-
-    _this.drawers = createDrawers(_this, _this.collectionMode ? _this.source.tileSources : _this.source);
-
-        $.console.log('Created Drawers %O',_this.drawers );
-    //Instantiate a navigator if configured
-    if ( _this.showNavigator  && !_this.collectionMode ){
-        // Note: By passing the fully parsed source, the navigator doesn't
-        // have to load it again.
-        if ( _this.navigator ) {
-            _this.navigator.open( source );
-        } else {
-            _this.navigator = new $.Navigator({
-                id:                _this.navigatorId,
-                position:          _this.navigatorPosition,
-                sizeRatio:         _this.navigatorSizeRatio,
-                maintainSizeRatio: _this.navigatorMaintainSizeRatio,
-                top:               _this.navigatorTop,
-                left:              _this.navigatorLeft,
-                width:             _this.navigatorWidth,
-                height:            _this.navigatorHeight,
-                autoResize:        _this.navigatorAutoResize,
-                tileSources:       source,
-                tileHost:          _this.tileHost,
-                prefixUrl:         _this.prefixUrl,
-                overlays:          _this.overlays,
-                viewer:            _this
-            });
-        }
-    }
-
-    //Instantiate a referencestrip if configured
-    if ( _this.showReferenceStrip  && !_this.referenceStrip ){
-        _this.referenceStrip = new $.ReferenceStrip({
-            id:          _this.referenceStripElement,
-            position:    _this.referenceStripPosition,
-            sizeRatio:   _this.referenceStripSizeRatio,
-            scroll:      _this.referenceStripScroll,
-            height:      _this.referenceStripHeight,
-            width:       _this.referenceStripWidth,
-            tileSources: _this.tileSources,
-            tileHost:    _this.tileHost,
-            prefixUrl:   _this.prefixUrl,
-            overlays:    _this.overlays,
-            viewer:      _this
-        });
-    }
-
-    ViewerStateMap[ _this.hash ].animating = false;
-    ViewerStateMap[ _this.hash ].forceRedraw = true;
-    _this._updateRequestId = scheduleUpdate( _this, updateMulti );
-
-    //Assuming you had programatically created a bunch of overlays
-    //and added them via configuration
-    // TODO : Replace viewer overlay creation with something more sensible later
-//    for ( i = 0; i < _this.overlayControls.length; i++ ) {
-//
-//        overlay = _this.overlayControls[ i ];
-//
-//        if ( overlay.point ) {
-//
-//            _this.drawer.addOverlay(
-//                overlay.id,
-//                new $.Point(
-//                    overlay.point.X,
-//                    overlay.point.Y
-//                ),
-//                $.OverlayPlacement.TOP_LEFT
-//            );
-//
-//        } else {
-//
-//            _this.drawer.addOverlay(
-//                overlay.id,
-//                new $.Rect(
-//                    overlay.rect.Point.X,
-//                    overlay.rect.Point.Y,
-//                    overlay.rect.Width,
-//                    overlay.rect.Height
-//                ),
-//                overlay.placement
-//            );
-//
-//        }
-//    }
-    VIEWERS[ _this.hash ] = _this;
-
-    _this.raiseEvent( 'open', { source: source } );
-
-    return _this;
-}
-
-function createDrawers(viewer, tileSources) {
-
-    if(!$.isArray(tileSources)) {
-        $.console.log('Wrapping tileSources into array %O', tileSources);
-        tileSources = [tileSources];
-    }
-    $.console.log('Create Drawers for Viewer %O with sources %O',viewer, tileSources);
-
-    var drawers = [];
-    var drawer = null;
-
-    // Create the rendering elements
-    // TODO : Its only really IE 8 that doesn't support canvas but using this
-    // https://code.google.com/p/explorercanvas
-    // will allow canvas usage in IE, so add that and remove all the 'div' / html renderer support.
-    var useCanvas = $.supportsCanvas && viewer.useCanvas;
-    var renderContainer = $.makeNeutralElement( useCanvas ? "canvas" : "div" );
-    renderContainer.style.width     = "100%";
-    renderContainer.style.height    = "100%";
-    renderContainer.style.position  = "absolute";
-    $.getElement(viewer.canvas).appendChild( renderContainer );
-
-    viewer.canvas = renderContainer;
-    viewer.renderingSurface = renderContainer.getContext("2d");
-
-    var gridColours = ['#00FF00','#FFFF00'];
-    var textColours = ['#FF7700','#77FF00'];
-    var i = 0;
-    var source = null;
-    // First need to find out the total size of all the tileSources when layed out according to collectionLayout
-    // At the moment only $.LAYOUT.HORIZONTAL and $.LAYOUT.VERTICAL are supported
-    var totalContentSize = new $.Point(0,0);
-    // How far away from 0,0 this source is
-    var sourceOffsets = [];
-    for(i=0;i<tileSources.length;i++) {
-        source = tileSources[i];
-        if(viewer.collectionLayout === $.LAYOUT.HORIZONTAL) {
-            sourceOffsets[i] = new $.Point(totalContentSize.x, 0);
-            totalContentSize.x += source.dimensions.x;
-            if(source.dimensions.y > totalContentSize.y) {
-                totalContentSize.y = source.dimensions.y;
-            }
-        } else {
-            sourceOffsets[i] = new $.Point(0, totalContentSize.y);
-            totalContentSize.y += source.dimensions.y;
-            if(source.dimensions.x > totalContentSize.x) {
-                totalContentSize.x = source.dimensions.x;
-            }
-        }
-    }
-
-    $.console.log('Total Content Size %s', totalContentSize.toString());
-    $.console.log('Source Offsets %O',sourceOffsets);
-
-    for(i=0;i<tileSources.length;i++) {
-        source = tileSources[i];
-        var gridColor = gridColours[i % gridColours.length];
-        var textColor = textColours[i % textColours.length];
-
-        // Now we have the total content size we create content bounds for each drawer
-        // The content bounds are rectangles which define how much each tile source / drawer
-        // covers of the whole content area.
-        // e.g.
-        // For a single source the bounds will be 0,0 -> 1,1
-        // For two sources laid out horizontally which have equal dimensions they will be
-        // 0,0 -> 0.5,1  and  0.5,0 -> 1,1
-        var offset = sourceOffsets[i];
-        if(viewer.collectionLayout === $.LAYOUT.HORIZONTAL) {
-            offset.y +=  (totalContentSize.y - source.dimensions.y) * 0.5;
-        } else {
-            offset.x += (totalContentSize.x - source.dimensions.x) * 0.5;
-        }
-        var contentBounds = new $.Rect(offset.x / totalContentSize.x,offset.y / totalContentSize.y,
-                                       source.dimensions.x / totalContentSize.x, source.dimensions.y / totalContentSize.y);
-
-        // TEST : Try different content bounds settings
-//        contentBounds.width = 1;
-////        contentBounds.height = 1;
-//        contentBounds.x = 0.5;
-        $.console.log('Content Bounds %s', contentBounds.toString());
-
-        drawer = new $.Drawer({
-            sourceIndex:        i,
-            viewer:             viewer,
-            source:             source,
-            contentBounds:      contentBounds,
-            viewport:           viewer.viewport,
-            element:            viewer.canvas,
-            canvas:             renderContainer,
-            overlays:           source.overlays,
-            maxImageCacheCount: viewer.maxImageCacheCount,
-            minZoomImageRatio:  viewer.minZoomImageRatio,
-            wrapHorizontal:     viewer.wrapHorizontal,
-            wrapVertical:       viewer.wrapVertical,
-            immediateRender:    viewer.immediateRender,
-            blendTime:          viewer.blendTime,
-            alwaysBlend:        viewer.alwaysBlend,
-            minPixelRatio:      viewer.minPixelRatio,
-            timeout:            viewer.timeout,
-            debugMode:          viewer.debugMode,
-            debugGridColor:     gridColor,
-            debugTextColor:     textColor
-        });
-
-        drawers.push(drawer);
-    }
-
-    return drawers;
 }
 
 

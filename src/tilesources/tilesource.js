@@ -286,7 +286,6 @@ $.TileSource.prototype = /** @lends OpenSeadragon.TileSource.prototype */{
 
         return new $.Point( tx, ty );
     },
-
     /**
      * @function
      * @param {Number} level

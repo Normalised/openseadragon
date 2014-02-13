@@ -46,19 +46,6 @@
  */
 $.Drawer = function( options ) {
 
-    //backward compatibility for positional args while prefering more
-    //idiomatic javascript options object as the only argument
-    var args  = arguments,
-        i;
-
-    if( !$.isPlainObject( options ) ){
-        options = {
-            source:     args[ 0 ], // Reference to Viewer tile source.
-            viewport:   args[ 1 ], // Reference to Viewer viewport.
-            element:    args[ 2 ]  // Parent element.
-        };
-    }
-
     $.console.log('Drawer Options %O',options);
 
     $.extend( true, this, {
@@ -168,6 +155,10 @@ $.Drawer = function( options ) {
     this.lowestLevelK2 = Math.max( this.source.minLevel, this.lowestLevelK);
     this.oneOverMinPixelRatio = 1.0 / this.minPixelRatio;
 
+    // Array of Renderable
+    this.layers = [];
+    // Boolean, turn layer rendering on and off
+    this.renderLayers = true;
 };
 
 $.Drawer.prototype = /** @lends OpenSeadragon.Drawer.prototype */{
@@ -452,7 +443,9 @@ $.Drawer.prototype = /** @lends OpenSeadragon.Drawer.prototype */{
 
         var best = this.updateVisibilityAndLevels(lowestLevel, highestLevel, viewportTL, viewportBR, currentTime);
         this.drawTiles();
-        this.drawOverlays();
+        if(this.renderLayers) {
+            this.drawLayers();
+        }
 
         //TODO
         if ( best ) {
@@ -916,6 +909,11 @@ $.Drawer.prototype = /** @lends OpenSeadragon.Drawer.prototype */{
         point = point.plus(this.contentBounds.getTopLeft());
         return this.viewport.pixelFromPoint(point, useCurrentBounds);
     },
+    rectToPixelSpace:function(rect) {
+        var topLeft = this.pixelFromPoint(rect.getTopLeft(), true);
+        var size = this.deltaPixelsFromPoints(rect.getSize(), true);
+        return new $.Rect(topLeft.x,topLeft.y,size.x,size.y);
+    },
     getSourcePixelRatio:function(level) {
         return this.source.getPixelRatio(level);
     },
@@ -954,6 +952,16 @@ $.Drawer.prototype = /** @lends OpenSeadragon.Drawer.prototype */{
 
         return -1;
     },
+    drawLayers:function() {
+        var layer;
+        for(var i=0;i<this.layers.length;i++) {
+            layer = this.layers[i];
+            layer.render(this.context, this.rectToPixelSpace(layer.bounds));
+        }
+    },
+    showLayers:function(show) {
+        this.renderLayers = show;
+    },
     drawOverlays:function(){
         var i,
             length = this.overlays.length;
@@ -961,12 +969,30 @@ $.Drawer.prototype = /** @lends OpenSeadragon.Drawer.prototype */{
             this.drawOverlay( this.overlays[ i ]);
         }
     },
-    drawOverlay:function( overlay){
+    drawOverlay:function( overlay ){
         overlay.position = this.pixelFromPoint( overlay.bounds.getTopLeft(), true );
         overlay.size     = this.deltaPixelsFromPoints( overlay.bounds.getSize(), true );
         overlay.drawHTML( this.container, this.viewport );
+    },
+    addLayer:function(renderable) {
+        $.console.log('Add Layer To Drawer %s',renderable);
+        this.layers.unshift(renderable);
+        this.layers.sort(function(a,b){return a-b});
+    },
+    removeLayer:function(renderable) {
+        for(var i=0;i<this.layers.length;i++) {
+            if(this.layers[i] === renderable) {
+                this.layers.splice(i,1);
+                return;
+            }
+        }
+    },
+    cleanup:function() {
+        $.console.log('Cleanup Drawer %O',this);
+        // dispose of anything we created an no longer need
+        this.layers = null;
+        this.renderer = null;
     }
-
 };
 
 function offsetForRotation( tile, canvas, context, degrees ){

@@ -52,6 +52,7 @@ module.exports = function(grunt) {
             "src/geom2d/displayrectangle.js",
             "src/spring.js",
             "src/ui/overlay.js",
+            "src/ui/Renderable.js",
             /** Depends on Viewer / Event Source **/
             "src/ui/referencestrip.js",
             "src/renderers/TileCanvasRenderer.js",
