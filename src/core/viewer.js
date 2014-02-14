@@ -225,6 +225,7 @@ $.extend( $.Viewer.prototype, $.EventSource.prototype, $.ControlDock.prototype, 
                 }
             }
         }( element.style ));
+        $.console.log('Configured element %O', element);
     },
     /**
      * @function
@@ -397,6 +398,7 @@ $.extend( $.Viewer.prototype, $.EventSource.prototype, $.ControlDock.prototype, 
      * @return {Boolean}
      */
     isFullPage: function () {
+        $.console.log('isFullPage %s',this.fullPage);
         this.fullPage;
     },
 
@@ -412,16 +414,16 @@ $.extend( $.Viewer.prototype, $.EventSource.prototype, $.ControlDock.prototype, 
      */
     setFullPage: function( fullPage ) {
 
+        $.console.log('Set fullpage %s',fullPage);
         var body = document.body,
             bodyStyle = body.style,
             docStyle = document.documentElement.style,
             _this = this,
-            hash,
             nodes,
             i;
 
         //dont bother modifying the DOM if we are already in full page mode.
-        if ( fullPage == this.isFullPage() ) {
+        if ( fullPage == this.fullPage ) {
             return this;
         }
 
@@ -514,6 +516,7 @@ $.extend( $.Viewer.prototype, $.EventSource.prototype, $.ControlDock.prototype, 
 
             this.fullPage = true;
 
+            $.console.log('Created full page %s',this.fullPage);
             // mouse will be inside container now
             //$.delegate( this, onContainerEnter )( {} );
             this.mouseTracker.onContainerEnter(null);
@@ -547,6 +550,8 @@ $.extend( $.Viewer.prototype, $.EventSource.prototype, $.ControlDock.prototype, 
             //If we've got a toolbar, we need to enable the user to use css to
             //reset it to its original state
             if ( this.toolbar && this.toolbar.element ) {
+                $.console.log('Remove toolbar %O',this.toolbar);
+
                 body.removeChild( this.toolbar.element );
 
                 //Make sure the user has some ability to style the toolbar based
@@ -616,6 +621,9 @@ $.extend( $.Viewer.prototype, $.EventSource.prototype, $.ControlDock.prototype, 
     setFullScreen: function( fullScreen ) {
         var _this = this;
 
+        $.console.log('Supports Full Screen %s', $.supportsFullScreen);
+        $.console.log('Is Full Screen %s', $.isFullScreen());
+
         if ( !$.supportsFullScreen ) {
             return this.setFullPage( fullScreen );
         }
@@ -649,7 +657,8 @@ $.extend( $.Viewer.prototype, $.EventSource.prototype, $.ControlDock.prototype, 
             this.setFullPage( true );
             // If the full page mode is not actually entered, we need to prevent
             // the full screen mode.
-            if ( !this.isFullPage() ) {
+            $.console.log('After set full page %s', this.fullPage);
+            if ( !this.fullPage ) {
                 return this;
             }
 
@@ -660,12 +669,13 @@ $.extend( $.Viewer.prototype, $.EventSource.prototype, $.ControlDock.prototype, 
 
             var onFullScreenChange = function() {
                 var isFullScreen = $.isFullScreen();
+                $.console.log('On full screen change %s',isFullScreen);
                 if ( !isFullScreen ) {
                     $.removeEvent( document, $.fullScreenEventName, onFullScreenChange );
                     $.removeEvent( document, $.fullScreenErrorEventName, onFullScreenChange );
 
                     _this.setFullPage( false );
-                    if ( _this.isFullPage() ) {
+                    if ( _this.fullPage ) {
                         _this.element.style.width = _this.fullPageStyleWidth;
                         _this.element.style.height = _this.fullPageStyleHeight;
                     }
@@ -688,6 +698,7 @@ $.extend( $.Viewer.prototype, $.EventSource.prototype, $.ControlDock.prototype, 
             $.addEvent( document, $.fullScreenEventName, onFullScreenChange );
             $.addEvent( document, $.fullScreenErrorEventName, onFullScreenChange );
 
+            $.console.log('Requesting full screen');
             $.requestFullScreen( document.body );
 
         } else {

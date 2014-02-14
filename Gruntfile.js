@@ -27,10 +27,10 @@ module.exports = function(grunt) {
             "src/ui/controldock.js",
             /** Viewer depends on event source / control dock **/
             "src/core/viewer.js",
+            "src/ui/fullscreen.js",
             "src/core/tile.js",
             "src/core/drawer.js",
             "src/core/viewport.js",
-            "src/fullscreen.js",
             "src/input/mousetracker.js",
             "src/input/ViewerMouseTracker.js",
             "src/ui/control.js",
@@ -54,6 +54,7 @@ module.exports = function(grunt) {
             "src/spring.js",
             "src/ui/overlay.js",
             "src/ui/Renderable.js",
+            "src/ui/FullPageView.js",
             "src/renderers/TileCanvasRenderer.js",
             "src/renderers/TileHtmlRenderer.js",
             "src/util/ImageLoader.js"
