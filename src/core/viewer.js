@@ -173,9 +173,6 @@ $.Viewer = function( options ) {
         "forceRedraw":       false,
         "mouseInside":       false,
         "group":             null,
-        // did we decide this viewer has a sequence of tile sources
-        "sequenced":         false,
-        "sequence":          0,
         "fullPage":          false,
         "onfullscreenchange": null
     };
@@ -243,7 +240,6 @@ $.Viewer = function( options ) {
     }
 
     this.viewerControls.bindStandardControls(this);
-    this.viewerControls.bindSequenceControls(this);
 
     for ( i = 0; i < this.customControls.length; i++ ) {
         this.addControl(
@@ -312,7 +308,7 @@ $.extend( $.Viewer.prototype, $.EventSource.prototype, $.ControlDock.prototype, 
 
         var promise = $.TileSourceFactory.create(this, tileSource);
         $.console.log('Tile Source Promise %O',promise.inspect());
-        promise.then( $.delegate(this, tileSourceCreateSuccess), $.delegate(this, tileSourceCreateError));
+        promise.then( $.delegate(this, this.tileSourceCreateSuccess), $.delegate(this, this.tileSourceCreateError));
 
         return this;
     },
@@ -352,15 +348,6 @@ $.extend( $.Viewer.prototype, $.EventSource.prototype, $.ControlDock.prototype, 
         VIEWERS[ this.hash ] = null;
         delete VIEWERS[ this.hash ];
 
-        /**
-         * Raised when the viewer is closed (see {@link OpenSeadragon.Viewer#close}).
-         *
-         * @event close
-         * @memberof OpenSeadragon.Viewer
-         * @type {object}
-         * @property {OpenSeadragon.Viewer} eventSource - A reference to the Viewer which raised the event.
-         * @property {?Object} userData - Arbitrary subscriber-defined object.
-         */
         this.raiseEvent( 'close' );
 
         return this;
@@ -792,8 +779,6 @@ $.extend( $.Viewer.prototype, $.EventSource.prototype, $.ControlDock.prototype, 
     isVisible: function () {
         return this.container.style.visibility != "hidden";
     },
-
-
     /**
      * @function
      * @param {Boolean} visible
@@ -802,94 +787,9 @@ $.extend( $.Viewer.prototype, $.EventSource.prototype, $.ControlDock.prototype, 
      */
     setVisible: function( visible ){
         this.container.style.visibility = visible ? "" : "hidden";
-        /**
-         * Raised when the viewer is shown or hidden (see {@link OpenSeadragon.Viewer#setVisible}).
-         *
-         * @event visible
-         * @memberof OpenSeadragon.Viewer
-         * @type {object}
-         * @property {OpenSeadragon.Viewer} eventSource - A reference to the Viewer which raised the event.
-         * @property {Boolean} visible
-         * @property {?Object} userData - Arbitrary subscriber-defined object.
-         */
         this.raiseEvent( 'visible', { visible: visible } );
         return this;
     },
-
-    /**
-     * Gets the active page of a sequence
-     * @function
-     * @return {Number}
-     */
-    currentPage: function () {
-        return ViewerStateMap[ this.hash ].sequenceIndex;
-      },
-
-    /**
-     * @function
-     * @return {OpenSeadragon.Viewer} Chainable.
-     * @fires OpenSeadragon.Viewer.event:page
-     */
-    goToPage: function( page ){
-
-        $.console.log('Viewer::goToPage %s',page);
-        if( page >= 0 && page < this.tileSources.length ){
-            /**
-             * Raised when the page is changed on a viewer configured with multiple image sources (see {@link OpenSeadragon.Viewer#goToPage}).
-             *
-             * @event page
-             * @memberof OpenSeadragon.Viewer
-             * @type {Object}
-             * @property {OpenSeadragon.Viewer} eventSource - A reference to the Viewer which raised the event.
-             * @property {Number} page - The page index.
-             * @property {?Object} userData - Arbitrary subscriber-defined object.
-             */
-            this.raiseEvent( 'page', { page: page } );
-
-            ViewerStateMap[ this.hash ].sequenceIndex = page;
-
-            this._updateSequenceButtons( page );
-
-            this.open( this.tileSources[ page ] );
-
-            if( this.referenceStrip ){
-                this.referenceStrip.setFocus( page );
-            }
-        }
-
-        return this;
-    },
-
-    /**
-     * Updates the sequence buttons.
-     * @function OpenSeadragon.Viewer.prototype._updateSequenceButtons
-     * @private
-     * @param {Number} Sequence Value
-     */
-    _updateSequenceButtons: function (page) {
-
-            if( this.nextButton ){
-                if( ( this.tileSources.length - 1 ) === page  ){
-                    //Disable next button
-                    if(!this.navPrevNextWrap){
-                        this.nextButton.disable();
-                    }
-                } else {
-                    this.nextButton.enable();
-                }
-            }
-            if( this.previousButton ){
-                if( page > 0 ){
-                    //Enable previous button
-                    this.previousButton.enable();
-                } else {
-                    if(!this.navPrevNextWrap){
-                        this.previousButton.disable();
-                    }
-                }
-            }
-      },
-      
     /**
      * Display a message in the viewport
      * @function OpenSeadragon.Viewer.prototype._showMessage
@@ -935,18 +835,13 @@ $.extend( $.Viewer.prototype, $.EventSource.prototype, $.ControlDock.prototype, 
         this.updateDrawers();
     },
     needsDrawUpdate:function() {
-        if(this.drawers[0]) {
-            return this.drawers[0].needsUpdate();
-        } else {
-            return false;
-        }
         // TODO : optimise
-//        for(var i=0;i<this.drawers.length;i++) {
-//            if(this.drawers[i].needsUpdate()) {
-//                return true;
-//            }
-//        }
-//        return false;
+        for(var i=0;i<this.drawers.length;i++) {
+            if(this.drawers[i].needsUpdate()) {
+                return true;
+            }
+        }
+        return false;
     },
     addOverlay:function(sourceIndex, element, location, overlayPlacement) {
         $.console.log('Add Overlay to source %s. Element %O. Location %O. Placement %s',sourceIndex, element, location, overlayPlacement);
@@ -1181,9 +1076,7 @@ $.extend( $.Viewer.prototype, $.EventSource.prototype, $.ControlDock.prototype, 
         if( this.collectionMode ) {
 
             this.source = new $.TileSourceCollection({
-                rows: this.collectionRows,
                 layout: this.collectionLayout,
-                tileSize: this.collectionTileSize,
                 tileSources: source,
                 tileMargin: this.collectionTileMargin
             });
@@ -1267,22 +1160,18 @@ $.extend( $.Viewer.prototype, $.EventSource.prototype, $.ControlDock.prototype, 
             });
         }
     },
-    createReferenceStrip:function() {
-        this.referenceStrip = new $.ReferenceStrip({
-            id:          this.referenceStripElement,
-            position:    this.referenceStripPosition,
-            sizeRatio:   this.referenceStripSizeRatio,
-            scroll:      this.referenceStripScroll,
-            height:      this.referenceStripHeight,
-            width:       this.referenceStripWidth,
-            tileSources: this.tileSources,
-            tileHost:    this.tileHost,
-            prefixUrl:   this.prefixUrl,
-            overlays:    this.overlays,
-            viewer:      this
-        });
-    }
+    tileSourceCreateSuccess:function(tileSource) {
+        $.console.log('Tile Source Created %O',tileSource);
 
+        if($.isArray ( tileSource )) {
+            this.collectionMode = true;
+        }
+        this.openTileSource(tileSource);
+    },
+    tileSourceCreateError:function(tileSource) {
+        $.console.log('Tile Source Creation Failed %O', tileSource);
+        this.raiseEvent( 'open-failed', event );
+    }
 });
 
 
@@ -1301,43 +1190,6 @@ function _getSafeElemSize (oElement) {
         (oElement.clientHeight === 0 ? 1 : oElement.clientHeight)
     );
 }
-
-function tileSourceCreateSuccess(tileSource) {
-    $.console.log('Tile Source Created %O',tileSource);
-
-    // 1. Check if its a list of sources and if so, is that list to be treated as a sequence or a collection
-    if( $.isArray( tileSource ) && !this.collectionMode ){
-
-        ViewerStateMap[ this.hash ].sequenced = true;
-
-        //Keeps the initial page within bounds
-        if ( this.initialPage > tileSource.length - 1 ){
-            this.initialPage = tileSource.length - 1;
-        }
-
-        //Update the sequence (aka current page) property
-        ViewerStateMap[ this.hash ].sequenceIndex = this.initialPage;
-    }
-
-    this.openTileSource(tileSource);
-}
-
-function tileSourceCreateError(tileSource) {
-    $.console.log('Tile Source Creation Failed %O', tileSource);
-    /**
-     * Raised when an error occurs loading a TileSource.
-     *
-     * @event open-failed
-     * @memberof OpenSeadragon.Viewer
-     * @type {object}
-     * @property {OpenSeadragon.Viewer} eventSource - A reference to the Viewer which raised the event.
-     * @property {String} message
-     * @property {String} source
-     * @property {?Object} userData - Arbitrary subscriber-defined object.
-     */
-    this.raiseEvent( 'open-failed', event );
-}
-
 
 ///////////////////////////////////////////////////////////////////////////////
 // Schedulers provide the general engine for animation

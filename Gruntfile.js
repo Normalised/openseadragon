@@ -53,8 +53,6 @@ module.exports = function(grunt) {
             "src/spring.js",
             "src/ui/overlay.js",
             "src/ui/Renderable.js",
-            /** Depends on Viewer / Event Source **/
-            "src/ui/referencestrip.js",
             "src/renderers/TileCanvasRenderer.js",
             "src/renderers/TileHtmlRenderer.js",
             "src/util/ImageLoader.js"

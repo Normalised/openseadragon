@@ -330,31 +330,6 @@
   *     interactions include dragging the image in a plane, and zooming in toward
   *     and away from the image.
   *
-  * @property {Boolean} [navPrevNextWrap=false]
-  *     If the 'previous' button will wrap to the last image when viewing the first
-  *     image and if the 'next' button will wrap to the first image when viewing
-  *     the last image.
-  *
-  * @property {Boolean} [showSequenceControl=true]
-  *     If the viewer has been configured with a sequence of tile sources, then
-  *     provide buttons for navigating forward and backward through the images.
-  *
-  * @property {OpenSeadragon.ControlAnchor} [sequenceControlAnchor=TOP_LEFT]
-  *     Placement of the default sequence controls.
-  *
-  * @property {Number} [initialPage=0]
-  *     If the viewer has been configured with a sequence of tile sources, display this page initially.
-  *
-  * @property {Boolean} [preserveViewport=false]
-  *     If the viewer has been configured with a sequence of tile sources, then
-  *     normally navigating to through each image resets the viewport to 'home'
-  *     position.  If preserveViewport is set to true, then the viewport position
-  *     is preserved when navigating between images in the sequence.
-  *
-  * @property {Boolean} [showReferenceStrip=false]
-  *     If the viewer has been configured with a sequence of tile sources, then
-  *     display a scrolling strip of image thumbnails for navigating through the images.
-  *
   * @property {String} [referenceStripScroll='horizontal']
   *
   * @property {Element} [referenceStripElement=null]
@@ -367,13 +342,7 @@
   *
   * @property {Number} [referenceStripSizeRatio=0.2]
   *
-  * @property {Boolean} [collectionMode=false]
-  *
-  * @property {Number} [collectionRows=3]
-  *
   * @property {String} [collectionLayout='horizontal']
-  *
-  * @property {Number} [collectionTileSize=800]
   *
   */
 
@@ -407,17 +376,6 @@
   * @property {String} fullpage.HOVER
   * @property {String} fullpage.DOWN
   *
-  * @property {Object} previous - Images for the previous button.
-  * @property {String} previous.REST
-  * @property {String} previous.GROUP
-  * @property {String} previous.HOVER
-  * @property {String} previous.DOWN
-  *
-  * @property {Object} next - Images for the next button.
-  * @property {String} next.REST
-  * @property {String} next.GROUP
-  * @property {String} next.HOVER
-  * @property {String} next.DOWN
   *
   */
 
@@ -729,8 +687,6 @@ window.OpenSeadragon = window.OpenSeadragon || function( options ){
             fixImageZoomWhenResize: false,
 
             //DEFAULT CONTROL SETTINGS
-            showSequenceControl:     true,  //SEQUENCE
-            sequenceControlAnchor:   null,  //SEQUENCE
             preserveViewport:        false, //SEQUENCE
             showNavigationControl:   true,  //ZOOM/HOME/FULL/SEQUENCE
             navigationControlAnchor: null,  //ZOOM/HOME/FULL
@@ -763,13 +719,8 @@ window.OpenSeadragon = window.OpenSeadragon || function( options ){
             referenceStripSizeRatio:     0.2,
 
             //COLLECTION VISUALIZATION SETTINGS
-            collectionRows:         3, //or columns depending on layout
             collectionLayout:       $.LAYOUT.HORIZONTAL,
             collectionMode:         false,
-            collectionTileSize:     800,
-
-            // COLLECTION RENDERING SETTINGS
-            renderCollectionInSingleViewport: false,
 
             //PERFORMANCE SETTINGS
             imageLoaderLimit:       0,

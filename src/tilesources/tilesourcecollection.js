@@ -39,20 +39,7 @@
  * @memberof OpenSeadragon
  * @extends OpenSeadragon.TileSource
  */
-$.TileSourceCollection = function( tileSize, tileSources, rows, layout  ) {
-
-    var options;
-
-    if( $.isPlainObject( tileSize ) ){
-        options = tileSize;
-    }else{
-        options = {
-            tileSize: arguments[ 0 ],
-            tileSources: arguments[ 1 ],
-            rows: arguments[ 2 ],
-            layout: arguments[ 3 ]
-        };
-    }
+$.TileSourceCollection = function( options ) {
 
     if(options.tileSources === null) {
         throw new Error('No Tile Sources provided for collection');
@@ -71,34 +58,6 @@ $.TileSourceCollection = function( tileSize, tileSources, rows, layout  ) {
     } else {
         isHorizontal = options.layout == $.LAYOUT.HORIZONTAL;
     }
-
-    var minLevel = 0,
-        levelSize = 1.0,
-        tilesPerRow = Math.ceil( options.tileSources.length / options.rows ),
-        longSide = tilesPerRow >= options.rows ?
-            tilesPerRow :
-            options.rows;
-
-    if(isHorizontal){
-        options.width = ( options.tileSize ) * tilesPerRow;
-        options.height = ( options.tileSize ) * options.rows;
-    } else {
-        options.height = ( options.tileSize ) * tilesPerRow;
-        options.width = ( options.tileSize ) * options.rows;
-    }
-
-    options.tileOverlap = -options.tileMargin;
-    options.tilesPerRow = tilesPerRow;
-
-    //Set min level to avoid loading sublevels since collection is a
-    //different kind of abstraction
-
-    while( levelSize  <  ( options.tileSize ) * longSide ){
-        //$.console.log( '%s levelSize %s minLevel %s', options.tileSize * longSide, levelSize, minLevel );
-        levelSize = levelSize * 2.0;
-        minLevel++;
-    }
-    options.minLevel = minLevel;
 
     // Call the TileSource constructor with 'this' as the context, a.k.a super(options)
     // As per most OSD constructor functions this will merge the options with 'this' object so

@@ -60,7 +60,6 @@
         },
         setupBindings:function() {
           this.bindStandardControls(this.viewer);
-          this.bindSequenceControls(this.viewer);
         },
         bindStandardControls:function(viewer) {
 
@@ -176,85 +175,6 @@
                     }
                 }
 
-            }
-            return viewer;
-        },
-        bindSequenceControls:function(viewer) {
-
-            //////////////////////////////////////////////////////////////////////////
-            // Image Sequence Controls
-            //////////////////////////////////////////////////////////////////////////
-            var onNextHandler           = $.delegate( this, this.onNext ),
-                onPreviousHandler       = $.delegate( this, this.onPrevious ),
-                navImages               = viewer.navImages,
-                useGroup                = true ;
-
-            if( viewer.showSequenceControl && ViewerStateMap[ viewer.hash ].sequenced ){
-
-                if( viewer.previousButton || viewer.nextButton ){
-                    //if we are binding to custom buttons then layout and
-                    //grouping is the responsibility of the page author
-                    useGroup = false;
-                }
-
-                viewer.previousButton = new $.Button({
-                    element:    viewer.previousButton ? $.getElement( viewer.previousButton ) : null,
-                    clickTimeThreshold: viewer.clickTimeThreshold,
-                    clickDistThreshold: viewer.clickDistThreshold,
-                    tooltip:    $.getString( "Tooltips.PreviousPage" ),
-                    srcRest:    this.resolveUrl( viewer.prefixUrl, navImages.previous.REST ),
-                    srcGroup:   this.resolveUrl( viewer.prefixUrl, navImages.previous.GROUP ),
-                    srcHover:   this.resolveUrl( viewer.prefixUrl, navImages.previous.HOVER ),
-                    srcDown:    this.resolveUrl( viewer.prefixUrl, navImages.previous.DOWN ),
-                    onRelease:  onPreviousHandler,
-                    onFocus:    this.onFocusHandler,
-                    onBlur:     this.onBlurHandler
-                });
-
-                viewer.nextButton = new $.Button({
-                    element:    viewer.nextButton ? $.getElement( viewer.nextButton ) : null,
-                    clickTimeThreshold: viewer.clickTimeThreshold,
-                    clickDistThreshold: viewer.clickDistThreshold,
-                    tooltip:    $.getString( "Tooltips.NextPage" ),
-                    srcRest:    this.resolveUrl( viewer.prefixUrl, navImages.next.REST ),
-                    srcGroup:   this.resolveUrl( viewer.prefixUrl, navImages.next.GROUP ),
-                    srcHover:   this.resolveUrl( viewer.prefixUrl, navImages.next.HOVER ),
-                    srcDown:    this.resolveUrl( viewer.prefixUrl, navImages.next.DOWN ),
-                    onRelease:  onNextHandler,
-                    onFocus:    this.onFocusHandler,
-                    onBlur:     this.onBlurHandler
-                });
-
-                if( !viewer.navPrevNextWrap ){
-                    viewer.previousButton.disable();
-                }
-
-                if( useGroup ){
-                    viewer.paging = new $.ButtonGroup({
-                        buttons: [
-                            viewer.previousButton,
-                            viewer.nextButton
-                        ],
-                        clickTimeThreshold: viewer.clickTimeThreshold,
-                        clickDistThreshold: viewer.clickDistThreshold
-                    });
-
-                    viewer.pagingControl = viewer.paging.element;
-
-                    if(!viewer.noControlDock) {
-                        if( viewer.toolbar ){
-                            viewer.toolbar.addControl(
-                                viewer.pagingControl,
-                                {anchor: $.ControlAnchor.BOTTOM_RIGHT}
-                            );
-                        }else{
-                            viewer.addControl(
-                                viewer.pagingControl,
-                                {anchor: viewer.sequenceControlAnchor || $.ControlAnchor.TOP_LEFT}
-                            );
-                        }
-                    }
-                }
             }
             return viewer;
         },
@@ -384,20 +304,6 @@
             if ( this.viewer.viewport ) {
                 this.viewer.viewport.applyConstraints();
             }
-        },
-        onPrevious:function(){
-            var previous = ViewerStateMap[ this.hash ].sequenceIndex - 1;
-            if(this.navPrevNextWrap && previous < 0){
-                previous += this.viewer.tileSources.length;
-            }
-            this.goToPage( previous );
-        },
-        onNext:function(){
-            var next = ViewerStateMap[ this.hash ].sequenceIndex + 1;
-            if(this.navPrevNextWrap && next >= this.viewer.tileSources.length){
-                next = 0;
-            }
-            this.goToPage( next );
         },
         onFocus:function() {
             $.console.log('On Focus %O', this);

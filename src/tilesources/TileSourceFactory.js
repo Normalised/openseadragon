@@ -81,6 +81,7 @@ $.TileSourceFactory = {
     },
     createTileSourceFromDescriptor:function(tileSource, configurator) {
 
+        $.console.log('Create Tile Source from Descriptor %s',tileSource);
         var deferred = Q.defer();
 
         // for now disable plain xml strings or json strings to be parsed here
