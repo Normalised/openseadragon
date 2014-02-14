@@ -100,10 +100,6 @@ $.TileSourceCollection = function( tileSize, tileSources, rows, layout  ) {
     }
     options.minLevel = minLevel;
 
-    //for( var name in options ){
-    //    $.console.log( 'Collection %s %s', name, options[ name ] );
-    //}
-
     // Call the TileSource constructor with 'this' as the context, a.k.a super(options)
     // As per most OSD constructor functions this will merge the options with 'this' object so
     // that the options become instance properties
@@ -128,8 +124,6 @@ $.TileSourceCollection = function( tileSize, tileSources, rows, layout  ) {
         }
     }
     this.dimensions = new $.Point(w,h);
-    // TEST : Fake some dimensions to see what effect that has on other components like the viewport
-    //this.dimensions = new $.Point(2000,500);
     $.console.log('Calculated Collection Dimensions %s', this.dimensions.toString());
 };
 
@@ -142,6 +136,7 @@ $.extend( $.TileSourceCollection.prototype, $.TileSource.prototype, /** @lends O
      * @param {Number} y
      */
     getTileBounds: function( level, x, y ) {
+        $.console.log('TSC getTileBounds. Level : %s. x,y : %s, %s',level, x, y);
         var dimensionsScaled = this.dimensions.times( this.getLevelScale( level ) ),
             px = this.tileSize * x - this.tileOverlap,
             py = this.tileSize * y - this.tileOverlap,

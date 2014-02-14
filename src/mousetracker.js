@@ -205,17 +205,6 @@
             stopTracking( this );
             this.element = null;
         },
-
-        /**
-         * Are we currently tracking events on this element.
-         * @deprecated Just use this.tracking
-         * @function
-         * @returns {Boolean} Are we currently tracking events on this element.
-         */
-        isTracking: function () {
-            return THIS[ this.hash ].tracking;
-        },
-
         /**
          * Enable or disable whether or not we are tracking events on this element.
          * @function

@@ -133,7 +133,7 @@ $.Drawer = function( options ) {
 
     //create the correct type of overlay by convention if the overlays
     //are not already OpenSeadragon.Overlays
-    for( i = 0; i < this.overlays.length; i++ ){
+    for(var i = 0; i < this.overlays.length; i++ ){
         if( $.isPlainObject( this.overlays[ i ] ) ){
 
             this.overlays[ i ] = $.OverlayFactory.create( this.viewport, this.overlays[ i ]);
@@ -977,7 +977,10 @@ $.Drawer.prototype = /** @lends OpenSeadragon.Drawer.prototype */{
     addLayer:function(renderable) {
         $.console.log('Add Layer To Drawer %s',renderable);
         this.layers.unshift(renderable);
-        this.layers.sort(function(a,b){return a-b});
+        this.layers.sort(function(a,b){
+                return a-b;
+            }
+        );
     },
     removeLayer:function(renderable) {
         for(var i=0;i<this.layers.length;i++) {

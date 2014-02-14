@@ -412,7 +412,7 @@ $.extend( $.Viewer.prototype, $.EventSource.prototype, $.ControlDock.prototype, 
      * @return {Boolean}
      */
     isMouseNavEnabled: function () {
-        return this.innerTracker.isTracking();
+        return this.innerTracker.tracking;
     },
 
     /**
@@ -1247,7 +1247,7 @@ $.extend( $.Viewer.prototype, $.EventSource.prototype, $.ControlDock.prototype, 
         // Note: By passing the fully parsed source, the navigator doesn't
         // have to load it again.
         if ( this.navigator ) {
-            this.navigator.open( source );
+            this.navigator.open( this.source );
         } else {
             this.navigator = new $.Navigator({
                 id:                this.navigatorId,
@@ -1259,7 +1259,7 @@ $.extend( $.Viewer.prototype, $.EventSource.prototype, $.ControlDock.prototype, 
                 width:             this.navigatorWidth,
                 height:            this.navigatorHeight,
                 autoResize:        this.navigatorAutoResize,
-                tileSources:       source,
+                tileSources:       this.source,
                 tileHost:          this.tileHost,
                 prefixUrl:         this.prefixUrl,
                 overlays:          this.overlays,
