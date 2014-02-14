@@ -127,52 +127,6 @@ $.TileSourceCollection = function( tileSize, tileSources, rows, layout  ) {
     $.console.log('Calculated Collection Dimensions %s', this.dimensions.toString());
 };
 
-$.extend( $.TileSourceCollection.prototype, $.TileSource.prototype, /** @lends OpenSeadragon.TileSourceCollection.prototype */{
-
-    /**
-     * @function
-     * @param {Number} level
-     * @param {Number} x
-     * @param {Number} y
-     */
-    getTileBounds: function( level, x, y ) {
-        $.console.log('TSC getTileBounds. Level : %s. x,y : %s, %s',level, x, y);
-        var dimensionsScaled = this.dimensions.times( this.getLevelScale( level ) ),
-            px = this.tileSize * x - this.tileOverlap,
-            py = this.tileSize * y - this.tileOverlap,
-            sx = this.tileSize + 1 * this.tileOverlap,
-            sy = this.tileSize + 1 * this.tileOverlap,
-            scale = 1.0 / dimensionsScaled.x;
-
-        sx = Math.min( sx, dimensionsScaled.x - px );
-        sy = Math.min( sy, dimensionsScaled.y - py );
-
-        return new $.Rect( px * scale, py * scale, sx * scale, sy * scale );
-    },
-
-    /**
-     *
-     * @function
-     */
-    configure: function( data, url ){
-        return;
-    },
-
-
-    /**
-     * @function
-     * @param {Number} level
-     * @param {Number} x
-     * @param {Number} y
-     */
-    getTileUrl: function( level, x, y ) {
-        //$.console.log([  level, '/', x, '_', y ].join( '' ));
-        return null;
-    }
-
-
-
-});
-
+//$.extend( $.TileSourceCollection.prototype, $.TileSource.prototype);
 
 }( OpenSeadragon ));
