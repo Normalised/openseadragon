@@ -34,9 +34,6 @@
 
 (function( $ ){
 
-// dictionary from hash to private properties
-var ViewerStateMap = {},
-
 // We keep a list of viewers so we can 'wake-up' each viewer on
 // a page after toggling between fullpage modes
 VIEWERS = {};
@@ -116,14 +113,6 @@ $.Viewer = function( options ) {
         //private state properties
         previousBody:   [],
 
-        //This was originally initialized in the constructor and so could never
-        //have anything in it.  now it can because we allow it to be specified
-        //in the options and is only empty by default if not specified. Also
-        //this array was returned from get_controls which I find confusing
-        //since this object has a controls property which is treated in other
-        //functions like clearControls.  I'm removing the accessors.
-        customControls: [],
-
         //These are originally not part options but declared as members
         //in initialize.  It's still considered idiomatic to put them here
         source:         null,
@@ -134,7 +123,8 @@ $.Viewer = function( options ) {
          */
         drawers:        [],
         /**
-         * Handles coordinate-related functionality - zoom, pan, rotation, etc. Created for each TileSource opened.
+         * Handles coordinate-related functionality - zoom, pan, rotation, etc.
+         * Only one viewport exists
          * @member {OpenSeadragon.Viewport} viewport
          * @memberof OpenSeadragon.Viewer#
          */
@@ -160,22 +150,6 @@ $.Viewer = function( options ) {
     if ( typeof( this.hash) === "undefined" ) {
         throw new Error("A hash must be defined, either by specifying options.id or options.hash.");
     }
-    if ( typeof( ViewerStateMap[ this.hash ] ) !== "undefined" ) {
-        // We don't want to throw an error here, as the user might have discarded
-        // the previous viewer with the same hash and now want to recreate it.
-        $.console.warn("Hash " + this.hash + " has already been used.");
-    }
-
-    //Private state properties
-    ViewerStateMap[ this.hash ] = {
-        "fsBoundsDelta":     new $.Point( 1, 1 ),
-        "animating":         false,
-        "forceRedraw":       false,
-        "mouseInside":       false,
-        "group":             null,
-        "fullPage":          false,
-        "onfullscreenchange": null
-    };
 
     this._updateRequestId = null;
 
@@ -205,34 +179,26 @@ $.Viewer = function( options ) {
     this.element.appendChild( this.container );
 
     //Used for toggling between fullscreen and default container size
-    //TODO: these can be closure private and shared across Viewer
-    //      instances.
     this.bodyWidth      = document.body.style.width;
     this.bodyHeight     = document.body.style.height;
     this.bodyOverflow   = document.body.style.overflow;
     this.docOverflow    = document.documentElement.style.overflow;
 
-    this.viewerControls = new $.ViewerControls(this, ViewerStateMap);
+    this.viewerControls = new $.ViewerControls(this);
     this.keyboardCommandArea.innerTracker = this.viewerControls.bindKeyControls();
 
-    this.innerTracker = new $.MouseTracker({
-        element:            this.canvas,
-        clickTimeThreshold: this.clickTimeThreshold,
-        clickDistThreshold: this.clickDistThreshold,
-        clickHandler:       $.delegate( this, onCanvasClick ),
-        dragHandler:        $.delegate( this, onCanvasDrag ),
-        releaseHandler:     $.delegate( this, onCanvasRelease ),
-        scrollHandler:      $.delegate( this, onCanvasScroll )
-    }).setTracking( this.mouseNavEnabled ? true : false ); // default state
-
-    this.outerTracker = new $.MouseTracker({
-        element:            this.container,
-        clickTimeThreshold: this.clickTimeThreshold,
-        clickDistThreshold: this.clickDistThreshold,
-        enterHandler:       $.delegate( this, onContainerEnter ),
-        exitHandler:        $.delegate( this, onContainerExit ),
-        releaseHandler:     $.delegate( this, onContainerRelease )
-    }).setTracking( this.mouseNavEnabled ? true : false ); // always tracking
+    this.mouseTracker = new $.ViewerMouseTracker({
+        mouseNavEnabled:this.mouseNavEnabled,
+        clickTimeThreshold:this.clickTimeThreshold,
+        clickDistThreshold:this.clickDistThreshold,
+        canvas:this.canvas,
+        container:this.container,
+        viewport:this.viewport,
+        zoomPerClick:this.zoomPerClick,
+        zoomPerScroll:this.zoomPerScroll,
+        panHorizontal:this.panHorizontal,
+        panVertical:this.panVertical
+    });
 
     if( this.toolbar && !this.noControlDock ){
         $.console.log('Create viewer toolbar ' + this.toolbar );
@@ -240,13 +206,6 @@ $.Viewer = function( options ) {
     }
 
     this.viewerControls.bindStandardControls(this);
-
-    for ( i = 0; i < this.customControls.length; i++ ) {
-        this.addControl(
-            this.customControls[ i ].id,
-            {anchor: this.customControls[ i ].anchor}
-        );
-    }
 
     this.autoHideHandler = $.delegate( this, this.beginControlsAutoHide);
     $.requestAnimationFrame(this.autoHideHandler);
@@ -377,11 +336,8 @@ $.extend( $.Viewer.prototype, $.EventSource.prototype, $.ControlDock.prototype, 
         if (this.keyboardCommandArea){
             this.keyboardCommandArea.innerTracker.destroy();
         }
-        if (this.innerTracker){
-            this.innerTracker.destroy();
-        }
-        if (this.outerTracker){
-            this.outerTracker.destroy();
+        if(this.mouseTracker) {
+            this.mouseTracker.destroy();
         }
 
         // clear all our references to dom objects
@@ -397,7 +353,7 @@ $.extend( $.Viewer.prototype, $.EventSource.prototype, $.ControlDock.prototype, 
      * @return {Boolean}
      */
     isMouseNavEnabled: function () {
-        return this.innerTracker.tracking;
+        return this.mouseTracker.innerTracker.tracking;
     },
     /**
      * @function
@@ -406,7 +362,7 @@ $.extend( $.Viewer.prototype, $.EventSource.prototype, $.ControlDock.prototype, 
      * @fires OpenSeadragon.Viewer.event:mouse-enabled
      */
     setMouseNavEnabled: function( enabled ){
-        this.innerTracker.setTracking( enabled );
+        this.mouseTracker.innerTracker.setTracking( enabled );
         this.raiseEvent( 'mouse-enabled', { enabled: enabled } );
         return this;
     },
@@ -448,7 +404,7 @@ $.extend( $.Viewer.prototype, $.EventSource.prototype, $.ControlDock.prototype, 
      * @return {Boolean}
      */
     isFullPage: function () {
-        return ViewerStateMap[ this.hash ].fullPage;
+        this.fullPage;
     },
 
 
@@ -527,10 +483,10 @@ $.extend( $.Viewer.prototype, $.EventSource.prototype, $.ControlDock.prototype, 
             //them as touch events on the document body.  Thus we remove and store
             //the bodies elements and replace them when we leave full screen.
             this.previousBody = [];
-            ViewerStateMap[ this.hash ].prevElementParent = this.element.parentNode;
-            ViewerStateMap[ this.hash ].prevNextSibling = this.element.nextSibling;
-            ViewerStateMap[ this.hash ].prevElementWidth = this.element.style.width;
-            ViewerStateMap[ this.hash ].prevElementHeight = this.element.style.height;
+            this.prevElementParent = this.element.parentNode;
+            this.prevNextSibling = this.element.nextSibling;
+            this.prevElementWidth = this.element.style.width;
+            this.prevElementHeight = this.element.style.height;
             nodes = body.childNodes.length;
             for ( i = 0; i < nodes; i++ ) {
                 this.previousBody.push( body.childNodes[ 0 ] );
@@ -563,10 +519,11 @@ $.extend( $.Viewer.prototype, $.EventSource.prototype, $.ControlDock.prototype, 
                 ) + 'px';
             }
 
-            ViewerStateMap[ this.hash ].fullPage = true;
+            this.fullPage = true;
 
             // mouse will be inside container now
-            $.delegate( this, onContainerEnter )( {} );
+            //$.delegate( this, onContainerEnter )( {} );
+            this.mouseTracker.onContainerEnter(null);
 
         } else {
 
@@ -589,9 +546,9 @@ $.extend( $.Viewer.prototype, $.EventSource.prototype, $.ControlDock.prototype, 
             }
 
             $.removeClass( this.element, 'fullpage' );
-            ViewerStateMap[ this.hash ].prevElementParent.insertBefore(
+            this.prevElementParent.insertBefore(
                 this.element,
-                ViewerStateMap[ this.hash ].prevNextSibling
+                this.prevNextSibling
             );
 
             //If we've got a toolbar, we need to enable the user to use css to
@@ -611,8 +568,8 @@ $.extend( $.Viewer.prototype, $.EventSource.prototype, $.ControlDock.prototype, 
                 delete this.toolbar.nextSibling;
             }
 
-            this.element.style.width = ViewerStateMap[ this.hash ].prevElementWidth;
-            this.element.style.height = ViewerStateMap[ this.hash ].prevElementHeight;
+            this.element.style.width = this.prevElementWidth;
+            this.element.style.height = this.prevElementHeight;
 
             // After exiting fullPage or fullScreen, it can take some time
             // before the browser can actually set the scroll.
@@ -629,11 +586,10 @@ $.extend( $.Viewer.prototype, $.EventSource.prototype, $.ControlDock.prototype, 
             };
             $.requestAnimationFrame( restoreScroll );
 
-            ViewerStateMap[ this.hash ].fullPage = false;
+            this.fullPage = false;
 
             // mouse will likely be outside now
-            $.delegate( this, onContainerExit )( { } );
-
+            this.mouseTracker.onContainerExit(null);
         }
 
         if ( this.navigator && this.viewport ) {
@@ -1077,8 +1033,8 @@ $.extend( $.Viewer.prototype, $.EventSource.prototype, $.ControlDock.prototype, 
             this.createReferenceStrip();
         }
 
-        ViewerStateMap[ _this.hash ].animating = false;
-        ViewerStateMap[ _this.hash ].forceRedraw = true;
+        this.animating = false;
+        this.forceRedraw = true;
         _this._updateRequestId = scheduleUpdate( _this, updateMulti );
 
         VIEWERS[ _this.hash ] = _this;
@@ -1106,6 +1062,8 @@ $.extend( $.Viewer.prototype, $.EventSource.prototype, $.ControlDock.prototype, 
         };
 
         this.viewport = this.viewport ? this.viewport : new $.Viewport(viewportOptions);
+
+        this.mouseTracker.viewport = this.viewport;
 
         if( this.preserveViewport ){
             this.viewport.resetContentSize( this.source.dimensions );
@@ -1254,170 +1212,6 @@ function abortControlsAutoHide( viewer ) {
 }
 
 
-
-///////////////////////////////////////////////////////////////////////////////
-// Default view event handlers.
-///////////////////////////////////////////////////////////////////////////////
-
-function onCanvasClick( event ) {
-    var zoomPerClick,
-        factor;
-    if ( !event.preventDefaultAction && this.viewport && event.quick ) {    // ignore clicks where mouse moved
-        zoomPerClick = this.zoomPerClick;
-        factor = event.shift ? 1.0 / zoomPerClick : zoomPerClick;
-        this.viewport.zoomBy(
-            factor,
-            this.viewport.pointFromPixel( event.position, true )
-        );
-        this.viewport.applyConstraints();
-    }
-
-    this.raiseEvent( 'canvas-click', {
-        tracker: event.eventSource,
-        position: event.position,
-        quick: event.quick,
-        shift: event.shift,
-        originalEvent: event.originalEvent
-    });
-}
-
-function onCanvasDrag( event ) {
-    if ( !event.preventDefaultAction && this.viewport ) {
-        if( !this.panHorizontal ){
-            event.delta.x = 0;
-        }
-        if( !this.panVertical ){
-            event.delta.y = 0;
-        }
-        this.viewport.panBy(
-            this.viewport.deltaPointsFromPixels(
-                event.delta.negate()
-            )
-        );
-        if( this.constrainDuringPan ){
-            this.viewport.applyConstraints();
-        }
-    }
-    /**
-     * Raised when a mouse or touch drag operation occurs on the {@link OpenSeadragon.Viewer#canvas} element.
-     *
-     * @event canvas-drag
-     * @memberof OpenSeadragon.Viewer
-     * @type {object}
-     * @property {OpenSeadragon.Viewer} eventSource - A reference to the Viewer which raised this event.
-     * @property {OpenSeadragon.MouseTracker} tracker - A reference to the MouseTracker which originated this event.
-     * @property {OpenSeadragon.Point} position - The position of the event relative to the tracked element.
-     * @property {OpenSeadragon.Point} delta - The x,y components of the difference between start drag and end drag.
-     * @property {Boolean} shift - True if the shift key was pressed during this event.
-     * @property {Object} originalEvent - The original DOM event.
-     * @property {?Object} userData - Arbitrary subscriber-defined object.
-     */
-    this.raiseEvent( 'canvas-drag', {
-        tracker: event.eventSource,
-        position: event.position,
-        delta: event.delta,
-        shift: event.shift,
-        originalEvent: event.originalEvent
-    });
-}
-
-function onCanvasRelease( event ) {
-    if ( event.insideElementPressed && this.viewport ) {
-        this.viewport.applyConstraints();
-    }
-    /**
-     * Raised when the mouse button is released or touch ends on the {@link OpenSeadragon.Viewer#canvas} element.
-     *
-     * @event canvas-release
-     * @memberof OpenSeadragon.Viewer
-     * @type {object}
-     * @property {OpenSeadragon.Viewer} eventSource - A reference to the Viewer which raised this event.
-     * @property {OpenSeadragon.MouseTracker} tracker - A reference to the MouseTracker which originated this event.
-     * @property {OpenSeadragon.Point} position - The position of the event relative to the tracked element.
-     * @property {Boolean} insideElementPressed - True if the left mouse button is currently being pressed and was initiated inside the tracked element, otherwise false.
-     * @property {Boolean} insideElementReleased - True if the cursor still inside the tracked element when the button was released.
-     * @property {Object} originalEvent - The original DOM event.
-     * @property {?Object} userData - Arbitrary subscriber-defined object.
-     */
-    this.raiseEvent( 'canvas-release', {
-        tracker: event.eventSource,
-        position: event.position,
-        insideElementPressed: event.insideElementPressed,
-        insideElementReleased: event.insideElementReleased,
-        originalEvent: event.originalEvent
-    });
-}
-
-function onCanvasScroll( event ) {
-    var factor;
-    if ( !event.preventDefaultAction && this.viewport ) {
-        factor = Math.pow( this.zoomPerScroll, event.scroll );
-        this.viewport.zoomBy(
-            factor,
-            this.viewport.pointFromPixel( event.position, true )
-        );
-        this.viewport.applyConstraints();
-    }
-
-    this.raiseEvent( 'canvas-scroll', {
-        tracker: event.eventSource,
-        position: event.position,
-        scroll: event.scroll,
-        shift: event.shift,
-        originalEvent: event.originalEvent
-    });
-    //cancels event
-    return false;
-}
-
-function onContainerExit( event ) {
-    if ( !event.insideElementPressed ) {
-        ViewerStateMap[ this.hash ].mouseInside = false;
-        if ( !ViewerStateMap[ this.hash ].animating ) {
-            this.beginControlsAutoHide();
-        }
-    }
-
-    this.raiseEvent( 'container-exit', {
-        tracker: event.eventSource,
-        position: event.position,
-        insideElementPressed: event.insideElementPressed,
-        buttonDownAny: event.buttonDownAny,
-        originalEvent: event.originalEvent
-    });
-}
-
-function onContainerRelease( event ) {
-    if ( !event.insideElementReleased ) {
-        ViewerStateMap[ this.hash ].mouseInside = false;
-        if ( !ViewerStateMap[ this.hash ].animating ) {
-            this.beginControlsAutoHide();
-        }
-    }
-
-    this.raiseEvent( 'container-release', {
-        tracker: event.eventSource,
-        position: event.position,
-        insideElementPressed: event.insideElementPressed,
-        insideElementReleased: event.insideElementReleased,
-        originalEvent: event.originalEvent
-    });
-}
-
-function onContainerEnter( event ) {
-    ViewerStateMap[ this.hash ].mouseInside = true;
-    abortControlsAutoHide( this );
-
-    this.raiseEvent( 'container-enter', {
-        tracker: event.eventSource,
-        position: event.position,
-        insideElementPressed: event.insideElementPressed,
-        buttonDownAny: event.buttonDownAny,
-        originalEvent: event.originalEvent
-    });
-}
-
-
 ///////////////////////////////////////////////////////////////////////////////
 // Page update routines ( aka Views - for future reference )
 ///////////////////////////////////////////////////////////////////////////////
@@ -1453,7 +1247,7 @@ function updateOnce( viewer ) {
             var oldCenter = viewer.viewport.getCenter();
             viewer.resizeViewportAndRecenter(containerSize, oldBounds, oldCenter);
             viewer.prevContainerSize = containerSize;
-            ViewerStateMap[ viewer.hash ].forceRedraw = true;
+            this.forceRedraw = true;
         }
     }
 
@@ -1464,7 +1258,7 @@ function updateOnce( viewer ) {
     }
 
     // TODO : This doesn't belong here as its related to viewport behaviour
-    if ( !ViewerStateMap[ viewer.hash ].animating && animated ) {
+    if ( !viewer.animating && animated ) {
         viewer.raiseEvent( "animation-start" );
         abortControlsAutoHide( viewer );
     }
@@ -1476,24 +1270,24 @@ function updateOnce( viewer ) {
         }
 
         viewer.raiseEvent( "animation" );
-    } else if ( ViewerStateMap[ viewer.hash ].forceRedraw || viewer.needsDrawUpdate() ) {
+    } else if ( viewer.forceRedraw || viewer.needsDrawUpdate() ) {
         viewer.updateDrawers();
         if( viewer.navigator ){
             viewer.navigator.update( viewer.viewport );
         }
-        ViewerStateMap[ viewer.hash ].forceRedraw = false;
+        viewer.forceRedraw = false;
     }
 
-    if ( ViewerStateMap[ viewer.hash ].animating && !animated ) {
+    if ( viewer.animating && !animated ) {
 
         viewer.raiseEvent( "animation-finish" );
 
-        if ( !ViewerStateMap[ viewer.hash ].mouseInside ) {
+        if ( viewer.mouseTracker.mouseInside ) {
             viewer.beginControlsAutoHide();
         }
     }
 
-    ViewerStateMap[ viewer.hash ].animating = animated;
+    viewer.animating = animated;
 }
 
 }( OpenSeadragon ));

@@ -34,16 +34,12 @@
 
 (function( $ ){
 
-    // This state map setup isn't pleasant. Find a way to remove it.
-    var ViewerStateMap;
     /**
      * @class ViewerControls
      * @memberof OpenSeadragon
      */
-    $.ViewerControls = function(viewer, stateMap){
+    $.ViewerControls = function(viewer){
         this.viewer = viewer;
-        this.hash = viewer.hash;
-        ViewerStateMap = stateMap;
         this.onFocusHandler = $.delegate( this, this.onFocus );
         this.onBlurHandler  = $.delegate( this, this.onBlur );
         this.zoomFrameHandler = $.delegate( this, this.doZoom );
@@ -246,7 +242,6 @@
             }).setTracking( true ); // default state
         },
         beginZoomingIn:function() {
-            $.console.log('Begin Zooming In. State Map %O',ViewerStateMap);
             this.lastZoomTime = $.now();
             this.zoomFactor = this.zoomPerSecond;
             this.zooming = true;
