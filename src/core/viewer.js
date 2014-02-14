@@ -34,10 +34,6 @@
 
 (function( $ ){
 
-// We keep a list of viewers so we can 'wake-up' each viewer on
-// a page after toggling between fullpage modes
-VIEWERS = {};
-
 /**
  *
  * The main point of entry into creating a zoomable image on the page.
@@ -303,9 +299,6 @@ $.extend( $.Viewer.prototype, $.EventSource.prototype, $.ControlDock.prototype, 
         if (this.canvas){
             this.canvas.innerHTML = "";
         }
-
-        VIEWERS[ this.hash ] = null;
-        delete VIEWERS[ this.hash ];
 
         this.raiseEvent( 'close' );
 
@@ -1037,8 +1030,6 @@ $.extend( $.Viewer.prototype, $.EventSource.prototype, $.ControlDock.prototype, 
         this.forceRedraw = true;
         _this._updateRequestId = scheduleUpdate( _this, updateMulti );
 
-        VIEWERS[ _this.hash ] = _this;
-
         _this.raiseEvent( 'open', { source: source } );
 
         return _this;
@@ -1247,7 +1238,7 @@ function updateOnce( viewer ) {
             var oldCenter = viewer.viewport.getCenter();
             viewer.resizeViewportAndRecenter(containerSize, oldBounds, oldCenter);
             viewer.prevContainerSize = containerSize;
-            this.forceRedraw = true;
+            viewer.forceRedraw = true;
         }
     }
 

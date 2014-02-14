@@ -674,6 +674,7 @@ $.Viewport.prototype = /** @lends OpenSeadragon.Viewport.prototype */{
 
         $.console.log('Update Container Size %s',this.containerSize.toStringRounded(true));
         this.containerAspectRatio = newContainerSize.x / newContainerSize.y;
+//        this.raiseEvent('containerSizeChanged',{});
         this.updateHomeZoom();
     },
     /**
