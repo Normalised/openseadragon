@@ -392,8 +392,6 @@ $.extend( $.Viewer.prototype, $.EventSource.prototype, $.ControlDock.prototype, 
         // clear our reference to the main element - they will need to pass it in again, creating a new viewer
         this.element = null;
     },
-
-
     /**
      * @function
      * @return {Boolean}
@@ -401,7 +399,6 @@ $.extend( $.Viewer.prototype, $.EventSource.prototype, $.ControlDock.prototype, 
     isMouseNavEnabled: function () {
         return this.innerTracker.tracking;
     },
-
     /**
      * @function
      * @param {Boolean} enabled - true to enable, false to disable
@@ -410,21 +407,9 @@ $.extend( $.Viewer.prototype, $.EventSource.prototype, $.ControlDock.prototype, 
      */
     setMouseNavEnabled: function( enabled ){
         this.innerTracker.setTracking( enabled );
-        /**
-         * Raised when mouse/touch navigation is enabled or disabled (see {@link OpenSeadragon.Viewer#setMouseNavEnabled}).
-         *
-         * @event mouse-enabled
-         * @memberof OpenSeadragon.Viewer
-         * @type {object}
-         * @property {OpenSeadragon.Viewer} eventSource - A reference to the Viewer which raised the event.
-         * @property {Boolean} enabled
-         * @property {?Object} userData - Arbitrary subscriber-defined object.
-         */
         this.raiseEvent( 'mouse-enabled', { enabled: enabled } );
         return this;
     },
-
-
     /**
      * @function
      * @return {Boolean}
@@ -453,16 +438,6 @@ $.extend( $.Viewer.prototype, $.EventSource.prototype, $.ControlDock.prototype, 
         } else {
             this.beginControlsAutoHide();
         }
-        /**
-         * Raised when the navigation controls are shown or hidden (see {@link OpenSeadragon.Viewer#setControlsEnabled}).
-         *
-         * @event controls-enabled
-         * @memberof OpenSeadragon.Viewer
-         * @type {object}
-         * @property {OpenSeadragon.Viewer} eventSource - A reference to the Viewer which raised the event.
-         * @property {Boolean} enabled
-         * @property {?Object} userData - Arbitrary subscriber-defined object.
-         */
         this.raiseEvent( 'controls-enabled', { enabled: enabled } );
         return this;
     },
@@ -1171,6 +1146,39 @@ $.extend( $.Viewer.prototype, $.EventSource.prototype, $.ControlDock.prototype, 
     tileSourceCreateError:function(tileSource) {
         $.console.log('Tile Source Creation Failed %O', tileSource);
         this.raiseEvent( 'open-failed', event );
+    },
+    resizeViewportAndRecenter:function( containerSize, oldBounds, oldCenter ) {
+        // This function resizes the viewport and recenters the image
+        // as it was before resizing.
+        // TODO: better adjust width and height. The new width and height
+        // should depend on the image dimensions and on the dimensions
+        // of the viewport before and after switching mode.
+
+        // We try to remove blanks as much as possible
+        var imageHeight = 1 / this.source.aspectRatio;
+        var newWidth = oldBounds.width <= 1 ? oldBounds.width : 1;
+        var newHeight = oldBounds.height <= imageHeight ?
+            oldBounds.height : imageHeight;
+
+        var newBounds = new $.Rect(
+            oldCenter.x - ( newWidth / 2.0 ),
+            oldCenter.y - ( newHeight / 2.0 ),
+            newWidth,
+            newHeight
+        );
+
+        if(this.fixImageZoomWhenResize) {
+            // TODO : Can probably do something with bounds calculations which
+            // maintains image zoom level rather than the update, check, force zoom dance
+            var oldImageZoom = this.viewport.viewportToImageZoom(this.viewport.getZoom(false));
+            this.viewport.resizeToFit( containerSize, true, newBounds );
+            var newImageZoom = this.viewport.viewportToImageZoom(this.viewport.getZoom(false));
+            if(newImageZoom != oldImageZoom) {
+                this.viewport.zoomTo(this.viewport.imageToViewportZoom(oldImageZoom), this.viewport.getCenter(), true);
+            }
+        } else {
+            this.viewport.resizeToFit( containerSize, true, newBounds );
+        }
     }
 });
 
@@ -1443,7 +1451,7 @@ function updateOnce( viewer ) {
             // maintain image position
             var oldBounds = viewer.viewport.getBounds();
             var oldCenter = viewer.viewport.getCenter();
-            resizeViewportAndRecenter(viewer, containerSize, oldBounds, oldCenter);
+            viewer.resizeViewportAndRecenter(containerSize, oldBounds, oldCenter);
             viewer.prevContainerSize = containerSize;
             ViewerStateMap[ viewer.hash ].forceRedraw = true;
         }
@@ -1486,41 +1494,6 @@ function updateOnce( viewer ) {
     }
 
     ViewerStateMap[ viewer.hash ].animating = animated;
-}
-
-// This function resizes the viewport and recenters the image
-// as it was before resizing.
-// TODO: better adjust width and height. The new width and height
-// should depend on the image dimensions and on the dimensions
-// of the viewport before and after switching mode.
-function resizeViewportAndRecenter( viewer, containerSize, oldBounds, oldCenter ) {
-    var viewport = viewer.viewport;
-
-    // We try to remove blanks as much as possible
-    var imageHeight = 1 / viewer.source.aspectRatio;
-    var newWidth = oldBounds.width <= 1 ? oldBounds.width : 1;
-    var newHeight = oldBounds.height <= imageHeight ?
-        oldBounds.height : imageHeight;
-
-    var newBounds = new $.Rect(
-        oldCenter.x - ( newWidth / 2.0 ),
-        oldCenter.y - ( newHeight / 2.0 ),
-        newWidth,
-        newHeight
-        );
-
-    if(viewer.fixImageZoomWhenResize) {
-      // TODO : Can probably do something with bounds calculations which
-      // maintains image zoom level rather than the update, check, force zoom dance
-      var oldImageZoom = viewport.viewportToImageZoom(viewport.getZoom());
-      viewport.resizeToFit( containerSize, true, newBounds );
-      var newImageZoom = viewport.viewportToImageZoom(viewport.getZoom());
-      if(newImageZoom != oldImageZoom) {
-        viewport.zoomTo(viewport.imageToViewportZoom(oldImageZoom), viewport.getCenter(), true);
-      }
-    } else {
-      viewport.resizeToFit( containerSize, true, newBounds );
-    }
 }
 
 }( OpenSeadragon ));
