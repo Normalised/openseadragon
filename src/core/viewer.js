@@ -399,7 +399,7 @@ $.extend( $.Viewer.prototype, $.EventSource.prototype, $.ControlDock.prototype, 
      */
     isFullPage: function () {
         $.console.log('isFullPage %s',this.fullPage);
-        this.fullPage;
+        return this.fullPage;
     },
 
 
