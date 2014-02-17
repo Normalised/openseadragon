@@ -924,6 +924,8 @@ $.extend( $.Viewer.prototype, $.EventSource.prototype, $.ControlDock.prototype, 
         var totalContentSize = new $.Point(0,0);
         // How far away from 0,0 this source is
         var sourceOffsets = [];
+        // Pixel margins, array of Rect
+        var margins = [];
         for(i=0;i<tileSources.length;i++) {
             source = tileSources[i];
             if(this.collectionLayout === $.LAYOUT.HORIZONTAL) {
@@ -932,13 +934,20 @@ $.extend( $.Viewer.prototype, $.EventSource.prototype, $.ControlDock.prototype, 
                 if(source.dimensions.y > totalContentSize.y) {
                     totalContentSize.y = source.dimensions.y;
                 }
+                if(this.source.margin) {
+                    margins[i] = new $.Rect(this.source.margin * i,0,0,0);
+                }
             } else {
                 sourceOffsets[i] = new $.Point(0, totalContentSize.y);
                 totalContentSize.y += source.dimensions.y;
                 if(source.dimensions.x > totalContentSize.x) {
                     totalContentSize.x = source.dimensions.x;
                 }
+                if(this.source.margin) {
+                    margins[i] = new $.Rect(0,this.source.margin * i,0,0);
+                }
             }
+
         }
 
         $.console.log('Total Content Size %s', totalContentSize.toString());
@@ -987,7 +996,8 @@ $.extend( $.Viewer.prototype, $.EventSource.prototype, $.ControlDock.prototype, 
                 timeout:            this.timeout,
                 debugMode:          this.debugMode,
                 debugGridColor:     gridColor,
-                debugTextColor:     textColor
+                debugTextColor:     textColor,
+                margin:             margins[i]
             });
 
             drawers.push(drawer);
@@ -1013,7 +1023,7 @@ $.extend( $.Viewer.prototype, $.EventSource.prototype, $.ControlDock.prototype, 
             this.source = new $.TileSourceCollection({
                 layout: this.collectionLayout,
                 tileSources: source,
-                tileMargin: this.collectionTileMargin
+                margin: this.collectionMargin
             });
 
         } else if( source ){

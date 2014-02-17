@@ -159,6 +159,11 @@ $.Drawer = function( options ) {
     this.layers = [];
     // Boolean, turn layer rendering on and off
     this.renderLayers = true;
+
+    if(this.margin) {
+        $.console.log('Drawer Margin %s',this.margin.toString());
+        this.renderer.margin = this.margin;
+    }
 };
 
 $.Drawer.prototype = /** @lends OpenSeadragon.Drawer.prototype */{

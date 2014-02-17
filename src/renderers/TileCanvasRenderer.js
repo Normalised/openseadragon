@@ -36,6 +36,10 @@
                 );
                 return;
             }
+            if(this.margin) {
+                position.x += this.margin.x;
+                position.y += this.margin.y;
+            }
             context.globalAlpha = tile.opacity;
 
             //if we are supposed to be rendering fully opaque rectangle,

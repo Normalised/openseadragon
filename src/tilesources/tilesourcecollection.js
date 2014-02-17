@@ -82,6 +82,14 @@ $.TileSourceCollection = function( options ) {
             }
         }
     }
+    // Add margin
+    if(this.margin) {
+        if(isHorizontal) {
+            w += this.margin * (this.tileSources.length - 1);
+        } else {
+            h += this.margin * (this.tileSources.length - 1);
+        }
+    }
     this.dimensions = new $.Point(w,h);
     $.console.log('Calculated Collection Dimensions %s', this.dimensions.toString());
 };
