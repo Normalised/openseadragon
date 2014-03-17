@@ -1,0 +1,20 @@
+{
+  "name": "openseadragon",
+  "version": "1.0.0",
+  "homepage": "https://github.com/Normalised/openseadragon",
+  "authors": [
+    "Martin Wood-Mitrovski <mdk@relivethefuture.com>"
+  ],
+  "description": "OpenSeadragon : Book Viewer",
+  "license": "MIT",
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests"
+  ],
+  "dependencies": {
+    "excanvas": "*"
+  }
+}
