@@ -153,10 +153,7 @@ $.Viewer = function( options ) {
     //Inherit some behaviors and properties
     $.EventSource.call( this );
 
-    this.addHandler( 'open-failed', function ( event ) {
-        var msg = $.getString( "Errors.OpenFailed", event.eventSource, event.message);
-        _this._showMessage( msg );
-    });
+    this.addHandler( 'open-failed', $.delegate(this,this.openFailed));
 
     // Create a container
     this.container = $.makeFormContainer();
@@ -211,6 +208,16 @@ $.Viewer = function( options ) {
 
 $.extend( $.Viewer.prototype, $.EventSource.prototype, $.ControlDock.prototype, /** @lends OpenSeadragon.Viewer.prototype */{
 
+    openFailed:function(event) {
+      this.log.warn('Couldnt open tile source %O', event);
+      this.failed = true;
+      var img = document.createElement('img');
+      img.src = 'images/no_image.png';
+      img.style.display = 'block';
+      img.style.margin = '0 auto';
+      img.style.height = '100%';
+      this.canvas.appendChild(img);
+    },
     configureElement:function(element, name, isAbsolute, extraStyles) {
         element.className = name;
         (function( style ){
@@ -1010,14 +1017,12 @@ $.extend( $.Viewer.prototype, $.EventSource.prototype, $.ControlDock.prototype, 
 
         this.log.log('Viewer::openTileSource. Viewer %O. Source %O.',this, source);
 
-        var _this = this;
-
         if ( this.source ) {
             this.close( );
         }
 
         this.canvas.innerHTML = "";
-        this.prevContainerSize = _getSafeElemSize( _this.container );
+        this.prevContainerSize = _getSafeElemSize( this.container );
 
         if( this.collectionMode ) {
 
@@ -1050,11 +1055,11 @@ $.extend( $.Viewer.prototype, $.EventSource.prototype, $.ControlDock.prototype, 
 
         this.animating = false;
         this.forceRedraw = true;
-        _this._updateRequestId = scheduleUpdate( _this, updateMulti );
+        this._updateRequestId = scheduleUpdate( this, updateMulti );
 
-        _this.raiseEvent( 'open', { source: source } );
+        this.raiseEvent( 'open', { source: source } );
 
-        return _this;
+        return this;
     },
     createViewport:function() {
         // Specify common viewport options
