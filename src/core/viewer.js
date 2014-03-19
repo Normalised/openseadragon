@@ -55,7 +55,8 @@
  **/
 $.Viewer = function( options ) {
 
-    $.console.log('Create Viewer %O', options);
+    this.log = $.logFactory.getLogger('osd.viewer');
+    this.log.log('Create Viewer %O', options);
 
     var args  = arguments,
         _this = this,
@@ -197,7 +198,7 @@ $.Viewer = function( options ) {
     });
 
     if( this.toolbar && !this.noControlDock ){
-        $.console.log('Create viewer toolbar ' + this.toolbar );
+        this.log.log('Create viewer toolbar ' + this.toolbar );
         this.toolbar = new $.ControlDock({ element: this.toolbar });
     }
 
@@ -225,7 +226,7 @@ $.extend( $.Viewer.prototype, $.EventSource.prototype, $.ControlDock.prototype, 
                 }
             }
         }( element.style ));
-        $.console.log('Configured element %O', element);
+        this.log.log('Configured element %O', element);
     },
     /**
      * @function
@@ -258,12 +259,12 @@ $.extend( $.Viewer.prototype, $.EventSource.prototype, $.ControlDock.prototype, 
      */
     open: function ( tileSource ) {
 
-        $.console.log('Viewer::open tile source %O',tileSource);
+        this.log.log('Viewer::open tile source %O',tileSource);
 
         this._hideMessage();
 
         var promise = $.TileSourceFactory.create(this, tileSource);
-        $.console.log('Tile Source Promise %O',promise.inspect());
+        this.log.log('Tile Source Promise %O',promise.inspect());
         promise.then( $.delegate(this, this.tileSourceCreateSuccess), $.delegate(this, this.tileSourceCreateError));
 
         return this;
@@ -276,7 +277,7 @@ $.extend( $.Viewer.prototype, $.EventSource.prototype, $.ControlDock.prototype, 
      */
     close: function ( ) {
 
-        $.console.log('Close Viewer');
+        this.log.log('Close Viewer');
 
         if ( this._updateRequestId !== null ) {
             $.cancelAnimationFrame( this._updateRequestId );
@@ -398,7 +399,7 @@ $.extend( $.Viewer.prototype, $.EventSource.prototype, $.ControlDock.prototype, 
      * @return {Boolean}
      */
     isFullPage: function () {
-        $.console.log('isFullPage %s',this.fullPage);
+        this.log.log('isFullPage %s',this.fullPage);
         return this.fullPage;
     },
 
@@ -414,7 +415,7 @@ $.extend( $.Viewer.prototype, $.EventSource.prototype, $.ControlDock.prototype, 
      */
     setFullPage: function( fullPage ) {
 
-        $.console.log('Set fullpage %s',fullPage);
+        this.log.log('Set fullpage %s',fullPage);
         var body = document.body,
             bodyStyle = body.style,
             docStyle = document.documentElement.style,
@@ -516,7 +517,7 @@ $.extend( $.Viewer.prototype, $.EventSource.prototype, $.ControlDock.prototype, 
 
             this.fullPage = true;
 
-            $.console.log('Created full page %s',this.fullPage);
+            this.log.log('Created full page %s',this.fullPage);
             // mouse will be inside container now
             //$.delegate( this, onContainerEnter )( {} );
             this.mouseTracker.onContainerEnter(null);
@@ -550,7 +551,7 @@ $.extend( $.Viewer.prototype, $.EventSource.prototype, $.ControlDock.prototype, 
             //If we've got a toolbar, we need to enable the user to use css to
             //reset it to its original state
             if ( this.toolbar && this.toolbar.element ) {
-                $.console.log('Remove toolbar %O',this.toolbar);
+                this.log.log('Remove toolbar %O',this.toolbar);
 
                 body.removeChild( this.toolbar.element );
 
@@ -621,8 +622,8 @@ $.extend( $.Viewer.prototype, $.EventSource.prototype, $.ControlDock.prototype, 
     setFullScreen: function( fullScreen ) {
         var _this = this;
 
-        $.console.log('Supports Full Screen %s', $.supportsFullScreen);
-        $.console.log('Is Full Screen %s', $.isFullScreen());
+        this.log.log('Supports Full Screen %s', $.supportsFullScreen);
+        this.log.log('Is Full Screen %s', $.isFullScreen());
 
         if ( !$.supportsFullScreen ) {
             return this.setFullPage( fullScreen );
@@ -657,7 +658,7 @@ $.extend( $.Viewer.prototype, $.EventSource.prototype, $.ControlDock.prototype, 
             this.setFullPage( true );
             // If the full page mode is not actually entered, we need to prevent
             // the full screen mode.
-            $.console.log('After set full page %s', this.fullPage);
+            this.log.log('After set full page %s', this.fullPage);
             if ( !this.fullPage ) {
                 return this;
             }
@@ -669,7 +670,7 @@ $.extend( $.Viewer.prototype, $.EventSource.prototype, $.ControlDock.prototype, 
 
             var onFullScreenChange = function() {
                 var isFullScreen = $.isFullScreen();
-                $.console.log('On full screen change %s',isFullScreen);
+                this.log.log('On full screen change %s',isFullScreen);
                 if ( !isFullScreen ) {
                     $.removeEvent( document, $.fullScreenEventName, onFullScreenChange );
                     $.removeEvent( document, $.fullScreenErrorEventName, onFullScreenChange );
@@ -698,7 +699,7 @@ $.extend( $.Viewer.prototype, $.EventSource.prototype, $.ControlDock.prototype, 
             $.addEvent( document, $.fullScreenEventName, onFullScreenChange );
             $.addEvent( document, $.fullScreenErrorEventName, onFullScreenChange );
 
-            $.console.log('Requesting full screen');
+            this.log.log('Requesting full screen');
             $.requestFullScreen( document.body );
 
         } else {
@@ -779,21 +780,21 @@ $.extend( $.Viewer.prototype, $.EventSource.prototype, $.ControlDock.prototype, 
         return false;
     },
     addOverlay:function(sourceIndex, element, location, overlayPlacement) {
-        $.console.log('Add Overlay to source %s. Element %O. Location %O. Placement %s',sourceIndex, element, location, overlayPlacement);
+        this.log.log('Add Overlay to source %s. Element %O. Location %O. Placement %s',sourceIndex, element, location, overlayPlacement);
     },
     addLayerToSource:function(sourceIndex, renderable) {
         var drawer = this.drawers[sourceIndex];
         if(drawer === null) {
-            $.console.warn('Drawer is null for sourceIndex %s',sourceIndex);
+            this.log.warn('Drawer is null for sourceIndex %s',sourceIndex);
         } else {
-            $.console.log('Add Layer To Source %s %O',sourceIndex, renderable);
+            this.log.log('Add Layer To Source %s %O',sourceIndex, renderable);
             drawer.addLayer(renderable);
         }
     },
     removeLayerFromSource:function(sourceIndex, renderable) {
         var drawer = this.drawers[sourceIndex];
         if(drawer === null) {
-            $.console.warn('Drawer is null for sourceIndex %s',sourceIndex);
+            this.log.warn('Drawer is null for sourceIndex %s',sourceIndex);
         } else {
             drawer.removeLayer(renderable);
         }
@@ -825,7 +826,7 @@ $.extend( $.Viewer.prototype, $.EventSource.prototype, $.ControlDock.prototype, 
         }
     },
     updateDrawers:function() {
-        //$.console.log('Update Drawers %s',viewer.drawers.length);
+        //this.log.log('Update Drawers %s',viewer.drawers.length);
         // Because the viewer now controls the drawing context, we check here if the container has been resized and
         // resize the canvas aka 'renderingSurface' accordingly
 
@@ -833,7 +834,7 @@ $.extend( $.Viewer.prototype, $.EventSource.prototype, $.ControlDock.prototype, 
         if ( this.useCanvas ) {
             var viewportSize    = this.viewport.containerSize;
             if( this.renderContainer.width  != viewportSize.x || this.renderContainer.height != viewportSize.y ) {
-                $.console.log('Resize canvas %s,%s to viewport %s for viewer.',this.renderContainer.width,this.renderContainer.height,viewportSize.toString());
+                this.log.log('Resize canvas %s,%s to viewport %s for viewer.',this.renderContainer.width,this.renderContainer.height,viewportSize.toString());
                 this.renderContainer.width  = viewportSize.x;
                 this.renderContainer.height = viewportSize.y;
             }
@@ -889,10 +890,10 @@ $.extend( $.Viewer.prototype, $.EventSource.prototype, $.ControlDock.prototype, 
     createDrawers:function(tileSources) {
 
         if(!$.isArray(tileSources)) {
-            $.console.log('Wrapping tileSources into array %O', tileSources);
+            this.log.log('Wrapping tileSources into array %O', tileSources);
             tileSources = [tileSources];
         }
-        $.console.log('Create Drawers for Viewer %O with sources %O',this, tileSources);
+        this.log.log('Create Drawers for Viewer %O with sources %O',this, tileSources);
 
         var drawers = [];
         var drawer = null;
@@ -912,7 +913,7 @@ $.extend( $.Viewer.prototype, $.EventSource.prototype, $.ControlDock.prototype, 
             //this.canvas = renderContainer;
             this.renderingSurface = this.renderContainer.getContext("2d");
         } else {
-            $.console.log('Re-using existing canvas / render container');
+            this.log.log('Re-using existing canvas / render container');
         }
 
         var gridColours = ['#00FF00','#FFFF00'];
@@ -950,8 +951,8 @@ $.extend( $.Viewer.prototype, $.EventSource.prototype, $.ControlDock.prototype, 
 
         }
 
-        $.console.log('Total Content Size %s', totalContentSize.toString());
-        $.console.log('Source Offsets %O',sourceOffsets);
+        this.log.log('Total Content Size %s', totalContentSize.toString());
+        this.log.log('Source Offsets %O',sourceOffsets);
 
         for(i=0;i<tileSources.length;i++) {
             source = tileSources[i];
@@ -974,7 +975,7 @@ $.extend( $.Viewer.prototype, $.EventSource.prototype, $.ControlDock.prototype, 
             var contentBounds = new $.Rect(offset.x / totalContentSize.x,offset.y / totalContentSize.y,
                 source.dimensions.x / totalContentSize.x, source.dimensions.y / totalContentSize.y);
 
-            $.console.log('Content Bounds %s', contentBounds.toString());
+            this.log.log('Content Bounds %s', contentBounds.toString());
 
             drawer = new $.Drawer({
                 sourceIndex:        i,
@@ -1007,7 +1008,7 @@ $.extend( $.Viewer.prototype, $.EventSource.prototype, $.ControlDock.prototype, 
     },
     openTileSource:function( source ) {
 
-        $.console.log('Viewer::openTileSource. Viewer %O. Source %O.',this, source);
+        this.log.log('Viewer::openTileSource. Viewer %O. Source %O.',this, source);
 
         var _this = this;
 
@@ -1036,7 +1037,7 @@ $.extend( $.Viewer.prototype, $.EventSource.prototype, $.ControlDock.prototype, 
 
         this.drawers = this.createDrawers(this.collectionMode ? this.source.tileSources : this.source);
 
-        $.console.log('Created Drawers %O',this.drawers );
+        this.log.log('Created Drawers %O',this.drawers );
         //Instantiate a navigator if configured
         if ( this.showNavigator  && !this.collectionMode ){
             this.createNavigator();
@@ -1106,7 +1107,7 @@ $.extend( $.Viewer.prototype, $.EventSource.prototype, $.ControlDock.prototype, 
         }
     },
     tileSourceCreateSuccess:function(tileSource) {
-        $.console.log('Tile Source Created %O',tileSource);
+        this.log.log('Tile Source Created %O',tileSource);
 
         if($.isArray ( tileSource )) {
             this.collectionMode = true;
@@ -1114,7 +1115,7 @@ $.extend( $.Viewer.prototype, $.EventSource.prototype, $.ControlDock.prototype, 
         this.openTileSource(tileSource);
     },
     tileSourceCreateError:function(tileSource) {
-        $.console.log('Tile Source Creation Failed %O', tileSource);
+        this.log.log('Tile Source Creation Failed %O', tileSource);
         this.raiseEvent( 'open-failed', event );
     },
     resizeViewportAndRecenter:function( containerSize, oldBounds, oldCenter ) {

@@ -421,6 +421,12 @@ window.OpenSeadragon = window.OpenSeadragon || function( options ){
     /* jshint ignore:end */
 
 
+  /**
+   * Components can create their own loggers via $.logFactory.getLogger('some.component.name');
+   * @type {woodman|*}
+   */
+    $.logFactory = window.woodman;
+
     /**
      * Taken from jquery 1.6.1
      * [[Class]] -> type pairs

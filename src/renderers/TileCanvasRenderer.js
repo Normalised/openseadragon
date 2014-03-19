@@ -13,7 +13,7 @@
     };
 
     $.TileCanvasRenderer = function(options) {
-        $.console.log('New TileCanvasRenderer');
+        this.log = $.logFactory.getLogger('osd.tileCanvasRenderer');
 
         if(options === null) {
             options = {};
@@ -30,10 +30,7 @@
                 canvas;
 
             if ( !tile.loaded || !( tile.image || TILE_CACHE[ tile.url ] ) ){
-                $.console.warn(
-                    "Attempting to draw tile %s when it's not yet loaded.",
-                    this.toString()
-                );
+                this.log.warn("Attempting to draw tile %s when it's not yet loaded.",this.toString());
                 return;
             }
             if(this.margin) {

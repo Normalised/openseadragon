@@ -46,7 +46,8 @@
  */
 $.Drawer = function( options ) {
 
-    $.console.log('Drawer Options %O',options);
+    this.log = $.logFactory.getLogger('osd.drawer');
+    this.log.log('Drawer Options %O',options);
 
     $.extend( true, this, {
 
@@ -79,7 +80,7 @@ $.Drawer = function( options ) {
 
     }, options );
 
-    $.console.log('Drawer %O',this);
+    this.log.log('Drawer %O',this);
 
     this.useCanvas  = $.supportsCanvas && ( this.viewer ? this.viewer.useCanvas : true );
     if(this.useCanvas) {
@@ -103,10 +104,10 @@ $.Drawer = function( options ) {
 
     var useOwnCanvas = this.canvas === undefined;
     if(useOwnCanvas) {
-        $.console.log('Creating canvas %O', this.canvas);
+        this.log.log('Creating canvas %O', this.canvas);
         this.canvas     = $.makeNeutralElement( this.useCanvas ? "canvas" : "div" );
     } else {
-        $.console.log('Using supplied canvas %O', this.canvas);
+        this.log.log('Using supplied canvas %O', this.canvas);
     }
     /**
      * 2d drawing context for {@link OpenSeadragon.Drawer#canvas} if it's a &lt;canvas&gt; element, otherwise null.
@@ -147,11 +148,11 @@ $.Drawer = function( options ) {
     if(this.contentBounds === null) {
         this.contentBounds = new $.Rect(0,0,1,1);
     } else {
-        $.console.log('Using Content Bounds %s', this.contentBounds.toString());
+        this.log.log('Using Content Bounds %s', this.contentBounds.toString());
     }
     this.lowestLevelK = Math.floor( Math.log( this.minZoomImageRatio ) /  Math.log( 2 ) );
     this.zeroPixelRatio  = this.getSourcePixelRatio(0);
-    $.console.log('ZPR %s',this.zeroPixelRatio);
+    this.log.log('ZPR %s',this.zeroPixelRatio);
     this.lowestLevelK2 = Math.max( this.source.minLevel, this.lowestLevelK);
     this.oneOverMinPixelRatio = 1.0 / this.minPixelRatio;
 
@@ -161,7 +162,7 @@ $.Drawer = function( options ) {
     this.renderLayers = true;
 
     if(this.margin) {
-        $.console.log('Drawer Margin %s',this.margin.toString());
+        this.log.log('Drawer Margin %s',this.margin.toString());
         this.renderer.margin = this.margin;
     }
 };
@@ -481,11 +482,11 @@ $.Drawer.prototype = /** @lends OpenSeadragon.Drawer.prototype */{
             return;
         }
         var promise = $.ImageLoader.loadImage(tile.url);
-        $.console.log('Load Tile %O : %s',promise,tile.url);
+        this.log.log('Load Tile from %s',tile.url);
         tile.loading = promise;
         var _this = this;
         promise.then(function(image){
-            $.console.log('Tile Loaded %s',tile.url);
+            //$.console.log('Tile Loaded %s',tile.url);
             _this.onTileLoad( tile, time, image );
         });
     },
@@ -570,7 +571,7 @@ $.Drawer.prototype = /** @lends OpenSeadragon.Drawer.prototype */{
     },
     onTileLoad:function( tile, time, image ) {
 
-        $.console.log('Drawer On Tile Load %O', tile);
+        //$.console.log('Drawer On Tile Load %O', tile);
         var insertionIndex;
 
         tile.loading = null;
@@ -713,7 +714,7 @@ $.Drawer.prototype = /** @lends OpenSeadragon.Drawer.prototype */{
             }
 
         } else if ( tile.loading && !tile.loading.isFulfilled() ) {
-            $.console.log("Tile is loading %s", tile.url);
+            //$.console.log("Tile is loading %s", tile.url);
         } else {
             best = tile.getBetterTile(best);
         }

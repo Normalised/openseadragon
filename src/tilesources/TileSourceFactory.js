@@ -42,6 +42,7 @@
  */
 $.TileSourceFactory = {
 
+    log: $.logFactory.getLogger('osd.tileSourceFactory'),
     /**
      *
      * Create a TileSource instance from any type of tile source description
@@ -57,7 +58,7 @@ $.TileSourceFactory = {
      * At the moment the 'configurator' is always the viewer which is calling create.
      */
     create:function(configurator, tileSource) {
-        $.console.log('TileSourceFactory::create %O',tileSource);
+        this.log.log('TileSourceFactory::create %O',tileSource);
 
         // If the tileSource is an array with only 1 item then just remap the single item back into tileSource
         if($.isArray(tileSource)) {
@@ -67,7 +68,7 @@ $.TileSourceFactory = {
                 // There are multiple sources, each of which may need converting into TileSource instances
                 // This is where chained promises would really come in useful as each descriptor conversion could be chained
                 // and the client code always receives one promise regardless.
-                $.console.log('Tile Source Descriptor is an array of sources. %O',tileSource);
+                this.log.log('Tile Source Descriptor is an array of sources. %O',tileSource);
                 var sourcePromises = [];
                 for(var i=0;i<tileSource.length;i++) {
                     sourcePromises.push(this.createTileSourceFromDescriptor(tileSource[i],configurator));
@@ -81,7 +82,7 @@ $.TileSourceFactory = {
     },
     createTileSourceFromDescriptor:function(tileSource, configurator) {
 
-        $.console.log('Create Tile Source from Descriptor %s',tileSource);
+        this.log.log('Create Tile Source from Descriptor %s',tileSource);
         var deferred = Q.defer();
 
         // for now disable plain xml strings or json strings to be parsed here
@@ -97,7 +98,7 @@ $.TileSourceFactory = {
         //    }
 
         if ( $.type( tileSource ) == 'string') {
-            $.console.log('Tile Source is a string, assuming URL : %s',tileSource);
+            this.log.log('Tile Source is a string, assuming URL : %s',tileSource);
             //If its still a string it means it must be a url at this point
             tileSource = new $.TileSource( tileSource, function( event ){
                 deferred.resolve(event.tileSource);
@@ -124,7 +125,7 @@ $.TileSourceFactory = {
                 deferred.resolve(readySource);
             }
         } else {
-            $.console.log('Supplied source is already a TileSource. %O',tileSource);
+             this.log.log('Supplied source is already a TileSource. %O',tileSource);
             //can assume it's already a tile source implementation
             deferred.resolve(tileSource);
         }

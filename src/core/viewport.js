@@ -69,6 +69,8 @@ $.Viewport = function( options ) {
 
     }, options );
 
+    this.log = $.logFactory.getLogger('osd.viewport');
+  
     this.centerSpringX = new $.Spring({
         initial: 0,
         springStiffness: this.springStiffness,
@@ -85,7 +87,7 @@ $.Viewport = function( options ) {
         animationTime:   this.animationTime
     });
 
-    $.console.log('New Viewport. Container Size %s',this.containerSize.toString());
+    this.log.log('New Viewport. Container Size %s',this.containerSize.toString());
     this.containerAspectRatio = this.containerSize.x / this.containerSize.y;
     this.resetContentSize( this.contentSize );
     this.goHome( true );
@@ -101,15 +103,15 @@ $.Viewport.prototype = /** @lends OpenSeadragon.Viewport.prototype */{
      */
     resetContentSize: function( contentSize ){
 
-        $.console.log('Reset Content Size %s', contentSize.toString());
+        this.log.log('Reset Content Size %s', contentSize.toString());
         this.contentSize    = contentSize;
         this.contentAspectX = this.contentSize.x / this.contentSize.y;
         this.contentAspectY = this.contentSize.y / this.contentSize.x;
         this.fitWidthBounds = new $.Rect( 0, 0, 1, this.contentAspectY );
         this.fitHeightBounds = new $.Rect( 0, 0, this.contentAspectY, this.contentAspectY);
 
-        $.console.log('Fit Width Bounds %s',this.fitWidthBounds.toString());
-        $.console.log('Fit Height Bounds %s',this.fitHeightBounds.toString());
+        this.log.log('Fit Width Bounds %s',this.fitWidthBounds.toString());
+        this.log.log('Fit Height Bounds %s',this.fitHeightBounds.toString());
         // Home Bounds is the same as fit width
         this.homeBounds = new $.Rect( 0, 0, 1, this.contentAspectY );
         this.homeBoundsCenter = this.homeBounds.getCenter();
@@ -132,7 +134,7 @@ $.Viewport.prototype = /** @lends OpenSeadragon.Viewport.prototype */{
         var aspectFactor = this.contentAspectX / this.containerAspectRatio;
 
         var hz = 1.0;
-        $.console.log('Get Home Zoom. Default %s. Aspect Factor %s',this.defaultZoomLevel,aspectFactor);
+        this.log.log('Get Home Zoom. Default %s. Aspect Factor %s',this.defaultZoomLevel,aspectFactor);
         if( this.defaultZoomLevel ){
             hz = this.defaultZoomLevel;
         } else {
@@ -150,7 +152,7 @@ $.Viewport.prototype = /** @lends OpenSeadragon.Viewport.prototype */{
         var width  = this.homeZoomInverse,
             height = width / this.containerAspectRatio;
 
-//        $.console.log('Get Home Bounds %s. Size %s,%s',this.homeBounds.toStringRounded(),width,height);
+//        this.log.log('Get Home Bounds %s. Size %s,%s',this.homeBounds.toStringRounded(),width,height);
         var hb = new $.Rect(
             this.homeBoundsCenter.x - ( width * 0.5 ),
             this.homeBoundsCenter.y - ( height * 0.5 ),
@@ -158,7 +160,7 @@ $.Viewport.prototype = /** @lends OpenSeadragon.Viewport.prototype */{
             height
         );
 
-//        $.console.log('Calc HB %s', hb.toStringRounded());
+//        this.log.log('Calc HB %s', hb.toStringRounded());
         return hb;
     },
 
@@ -169,15 +171,15 @@ $.Viewport.prototype = /** @lends OpenSeadragon.Viewport.prototype */{
      * @fires OpenSeadragon.Viewer.event:home
      */
     goHome: function( immediately ) {
-        $.console.log('-- GO HOME--');
+        this.log.log('-- GO HOME--');
         if( this.viewer ){
             this.viewer.raiseEvent( 'home', {
                 immediately: immediately
             });
         }
-        $.console.log('Go Home %s', this.getHomeBounds().toStringRounded());
+        this.log.log('Go Home %s', this.getHomeBounds().toStringRounded());
         var res = this.fitBounds( this.getHomeBounds(), immediately );
-        $.console.log('-- END GO HOME--');
+        this.log.log('-- END GO HOME--');
         return res;
     },
 
@@ -296,7 +298,7 @@ $.Viewport.prototype = /** @lends OpenSeadragon.Viewport.prototype */{
      */
     applyConstraints: function( immediately ) {
 
-        //$.console.log('Apply Constraints');
+        //this.log.log('Apply Constraints');
 
         var actualZoom = this.getZoom(false),
             constrainedZoom = Math.max( Math.min( actualZoom, this.getMaxZoom() ), this.getMinZoom() ),
@@ -351,7 +353,7 @@ $.Viewport.prototype = /** @lends OpenSeadragon.Viewport.prototype */{
         }
 
         if ( dx || dy || immediately ) {
-            $.console.log('Constrain. dx,dy : %s,%s, Bounds %s',dx,dy,bounds.toStringRounded());
+            this.log.log('Constrain. dx,dy : %s,%s, Bounds %s',dx,dy,bounds.toStringRounded());
             bounds.x += dx;
             bounds.y += dy;
             if( bounds.width > 1  ){
@@ -400,7 +402,7 @@ $.Viewport.prototype = /** @lends OpenSeadragon.Viewport.prototype */{
             newZoom,
             referencePoint;
 
-        $.console.log('Fit Bounds %s',newBounds.toStringRounded());
+        this.log.log('Fit Bounds %s',newBounds.toStringRounded());
 
         if ( newBounds.getAspectRatio() >= aspect ) {
             newBounds.height = bounds.width / aspect;
@@ -417,7 +419,7 @@ $.Viewport.prototype = /** @lends OpenSeadragon.Viewport.prototype */{
         oldZoom   = this.getZoom();
         newZoom   = 1.0 / newBounds.width;
         if ( newZoom == oldZoom || newBounds.width == oldBounds.width ) {
-            $.console.log('Zoom Matches, pan immediately to %s',center.toString());
+            this.log.log('Zoom Matches, pan immediately to %s',center.toString());
             return this.panTo( center, immediately );
         }
 
@@ -432,7 +434,7 @@ $.Viewport.prototype = /** @lends OpenSeadragon.Viewport.prototype */{
             this.containerSize.x / newBounds.width
         );
 
-        $.console.log('Fit Bounds ref point %s',referencePoint.toString());
+        this.log.log('Fit Bounds ref point %s',referencePoint.toString());
         return this.zoomTo( newZoom, referencePoint, immediately );
     },
 
@@ -516,7 +518,7 @@ $.Viewport.prototype = /** @lends OpenSeadragon.Viewport.prototype */{
     panTo: function( center, immediately ) {
 
         if ( immediately ) {
-            $.console.log('Pan To %s %s',center.toString(),immediately ? 'now' : '');
+            this.log.log('Pan To %s %s',center.toString(),immediately ? 'now' : '');
             this.centerSpringX.resetTo( center.x );
             this.centerSpringY.resetTo( center.y );
         } else {
@@ -540,7 +542,7 @@ $.Viewport.prototype = /** @lends OpenSeadragon.Viewport.prototype */{
      * @fires OpenSeadragon.Viewer.event:zoom
      */
     zoomBy: function( factor, refPoint, immediately ) {
-        $.console.log('Zoom By %s %O %s',factor, refPoint,immediately ? 'now' : '');
+        this.log.log('Zoom By %s %O %s',factor, refPoint,immediately ? 'now' : '');
         if( refPoint instanceof $.Point && refPoint.isValid() ) {
             if(this.degrees !== 0) {
                 refPoint = refPoint.rotate(-this.degrees, new $.Point( this.centerSpringX.target.value, this.centerSpringY.target.value ));
@@ -561,12 +563,12 @@ $.Viewport.prototype = /** @lends OpenSeadragon.Viewport.prototype */{
      */
     zoomTo: function( zoom, refPoint, immediately ) {
 
-        $.console.log('Zoom To. Zoom : %s. Ref Point : %O',zoom, refPoint);
+        this.log.log('Zoom To. Zoom : %s. Ref Point : %O',zoom, refPoint);
         this.zoomPoint = (refPoint instanceof $.Point) && refPoint.isValid() ? refPoint : null;
 
         if(refPoint !== null) {
             this.lastRefPoint = refPoint;
-            $.console.log('Stored Ref Point %s',this.lastRefPoint.toString());
+            this.log.log('Stored Ref Point %s',this.lastRefPoint.toString());
         }
 
         if ( immediately ) {
@@ -672,7 +674,7 @@ $.Viewport.prototype = /** @lends OpenSeadragon.Viewport.prototype */{
             newContainerSize.y
         );
 
-        $.console.log('Update Container Size %s',this.containerSize.toStringRounded(true));
+        this.log.log('Update Container Size %s',this.containerSize.toStringRounded(true));
         this.containerAspectRatio = newContainerSize.x / newContainerSize.y;
 //        this.raiseEvent('containerSizeChanged',{});
         this.updateHomeZoom();
