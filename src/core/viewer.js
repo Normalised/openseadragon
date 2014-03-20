@@ -211,12 +211,14 @@ $.extend( $.Viewer.prototype, $.EventSource.prototype, $.ControlDock.prototype, 
     openFailed:function(event) {
       this.log.warn('Couldnt open tile source %O', event);
       this.failed = true;
-      var img = document.createElement('img');
-      img.src = 'images/no_image.png';
-      img.style.display = 'block';
-      img.style.margin = '0 auto';
-      img.style.height = '100%';
-      this.canvas.appendChild(img);
+      if(this.failedImage === null) {
+        this.failedImage = document.createElement('img');
+        this.failedImage.src = 'images/no_image.png';
+        this.failedImage.style.display = 'block';
+        this.failedImage.style.margin = '0 auto';
+        this.failedImage.style.height = '100%';
+      }
+      this.canvas.appendChild(this.failedImage);
     },
     configureElement:function(element, name, isAbsolute, extraStyles) {
         element.className = name;
@@ -265,6 +267,12 @@ $.extend( $.Viewer.prototype, $.EventSource.prototype, $.ControlDock.prototype, 
      * @fires OpenSeadragon.Viewer.event:open-failed
      */
     open: function ( tileSource ) {
+
+
+        if(this.failedImage && (this.failedImage.parentNode === this.canvas)) {
+          //this.canvas.removeChild(this.failedImage);
+          //this.failedImage = null;
+        }
 
         this.log.log('Viewer::open tile source %O',tileSource);
 
