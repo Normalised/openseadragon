@@ -45,7 +45,7 @@ $.ImageLoader = {
     imageLoaderLimit: 0,
     downloading:0,
     loadImage: function( url, options ) {
-        options = options || {crossOrigin:'Anonymous'};
+        options = options || {crossOrigin:'use-credentials'};
         var img = new Image();
         if (options.crossOrigin) {
             img.crossOrigin = options.crossOrigin;

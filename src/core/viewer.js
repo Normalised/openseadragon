@@ -62,7 +62,6 @@ $.Viewer = function( options ) {
         _this = this,
         i;
 
-
     //Public properties
     //Allow the options object to override global defaults
     $.extend( true, this, {
@@ -202,6 +201,7 @@ $.Viewer = function( options ) {
     this.viewerControls.bindStandardControls(this);
 
     this.autoHideHandler = $.delegate( this, this.beginControlsAutoHide);
+    this.fullScreenChangeHandler = $.delegate(this, this.onFullScreenChange );
     $.requestAnimationFrame(this.autoHideHandler);
 
 };
@@ -211,12 +211,15 @@ $.extend( $.Viewer.prototype, $.EventSource.prototype, $.ControlDock.prototype, 
     openFailed:function(event) {
       this.log.warn('Couldnt open tile source %O', event);
       this.failed = true;
-      if(this.failedImage === null) {
+      if(this.failedImage == null) {
+//        this.log.log('Creating failed image');
         this.failedImage = document.createElement('img');
         this.failedImage.src = 'images/no_image.png';
         this.failedImage.style.display = 'block';
         this.failedImage.style.margin = '0 auto';
         this.failedImage.style.height = '100%';
+      } else {
+//        this.log.log('Using existing failed image');
       }
       this.canvas.appendChild(this.failedImage);
     },
@@ -329,6 +332,7 @@ $.extend( $.Viewer.prototype, $.EventSource.prototype, $.ControlDock.prototype, 
      * @function
      */
     destroy: function( ) {
+        this.log.log('Destroy viewer');
         this.close();
 
         this.removeAllHandlers();
@@ -635,7 +639,6 @@ $.extend( $.Viewer.prototype, $.EventSource.prototype, $.ControlDock.prototype, 
      * @fires OpenSeadragon.Viewer.event:full-screen
      */
     setFullScreen: function( fullScreen ) {
-        var _this = this;
 
         this.log.log('Supports Full Screen %s', $.supportsFullScreen);
         this.log.log('Is Full Screen %s', $.isFullScreen());
@@ -683,36 +686,8 @@ $.extend( $.Viewer.prototype, $.EventSource.prototype, $.ControlDock.prototype, 
             this.element.style.width = '100%';
             this.element.style.height = '100%';
 
-            var onFullScreenChange = function() {
-                var isFullScreen = $.isFullScreen();
-                this.log.log('On full screen change %s',isFullScreen);
-                if ( !isFullScreen ) {
-                    $.removeEvent( document, $.fullScreenEventName, onFullScreenChange );
-                    $.removeEvent( document, $.fullScreenErrorEventName, onFullScreenChange );
-
-                    _this.setFullPage( false );
-                    if ( _this.fullPage ) {
-                        _this.element.style.width = _this.fullPageStyleWidth;
-                        _this.element.style.height = _this.fullPageStyleHeight;
-                    }
-                }
-                if ( _this.navigator && _this.viewport ) {
-                    _this.navigator.update( _this.viewport );
-                }
-                /**
-                 * Raised when the viewer has changed to/from full-screen mode (see {@link OpenSeadragon.Viewer#setFullScreen}).
-                 *
-                 * @event full-screen
-                 * @memberof OpenSeadragon.Viewer
-                 * @type {object}
-                 * @property {OpenSeadragon.Viewer} eventSource - A reference to the Viewer which raised the event.
-                 * @property {Boolean} fullScreen - True if changed to full-screen mode, false if exited full-screen mode.
-                 * @property {?Object} userData - Arbitrary subscriber-defined object.
-                 */
-                _this.raiseEvent( 'full-screen', { fullScreen: isFullScreen } );
-            };
-            $.addEvent( document, $.fullScreenEventName, onFullScreenChange );
-            $.addEvent( document, $.fullScreenErrorEventName, onFullScreenChange );
+            $.addEvent( document, $.fullScreenEventName, this.fullScreenChangeHandler );
+            $.addEvent( document, $.fullScreenErrorEventName, this.fullScreenChangeHandler );
 
             this.log.log('Requesting full screen');
             $.requestFullScreen( document.body );
@@ -722,7 +697,35 @@ $.extend( $.Viewer.prototype, $.EventSource.prototype, $.ControlDock.prototype, 
         }
         return this;
     },
+    onFullScreenChange:function() {
+      var isFullScreen = $.isFullScreen();
+      this.log.log('On full screen change %s',isFullScreen);
 
+      if ( !isFullScreen ) {
+        $.removeEvent( document, $.fullScreenEventName, this.fullScreenChangeHandler);
+        $.removeEvent( document, $.fullScreenErrorEventName, this.fullScreenChangeHandler);
+
+        this.setFullPage( false );
+        if ( this.fullPage ) {
+          this.element.style.width = this.fullPageStyleWidth;
+          this.element.style.height = this.fullPageStyleHeight;
+        }
+      }
+      if ( this.navigator && this.viewport ) {
+        this.navigator.update( this.viewport );
+      }
+      /**
+       * Raised when the viewer has changed to/from full-screen mode (see {@link OpenSeadragon.Viewer#setFullScreen}).
+       *
+       * @event full-screen
+       * @memberof OpenSeadragon.Viewer
+       * @type {object}
+       * @property {OpenSeadragon.Viewer} eventSource - A reference to the Viewer which raised the event.
+       * @property {Boolean} fullScreen - True if changed to full-screen mode, false if exited full-screen mode.
+       * @property {?Object} userData - Arbitrary subscriber-defined object.
+       */
+      this.raiseEvent( 'full-screen', { fullScreen: isFullScreen } );
+    },
     /**
      * @function
      * @return {Boolean}
@@ -1026,6 +1029,7 @@ $.extend( $.Viewer.prototype, $.EventSource.prototype, $.ControlDock.prototype, 
         this.log.log('Viewer::openTileSource. Viewer %O. Source %O.',this, source);
 
         if ( this.source ) {
+            this.log.log('Closing existing source');
             this.close( );
         }
 
@@ -1034,6 +1038,7 @@ $.extend( $.Viewer.prototype, $.EventSource.prototype, $.ControlDock.prototype, 
 
         if( this.collectionMode ) {
 
+          this.log.log('Create TileSourceCollection for collectionMode');
             this.source = new $.TileSourceCollection({
                 layout: this.collectionLayout,
                 tileSources: source,
@@ -1070,30 +1075,32 @@ $.extend( $.Viewer.prototype, $.EventSource.prototype, $.ControlDock.prototype, 
         return this;
     },
     createViewport:function() {
+
+      this.log.log('Create Viewport. Existing : %O', this.viewport);
+      if(!this.viewport) {
         // Specify common viewport options
         var viewportOptions = {
-            containerSize:      this.prevContainerSize,
-            springStiffness:    this.springStiffness,
-            animationTime:      this.animationTime,
-            minZoomImageRatio:  this.minZoomImageRatio,
-            maxZoomPixelRatio:  this.maxZoomPixelRatio,
-            visibilityRatio:    this.visibilityRatio,
-            wrapHorizontal:     this.wrapHorizontal,
-            wrapVertical:       this.wrapVertical,
-            defaultZoomLevel:   this.defaultZoomLevel,
-            minZoomLevel:       this.minZoomLevel,
-            maxZoomLevel:       this.maxZoomLevel,
-            contentSize:        this.source.dimensions,
-            viewer:             this
+          containerSize:      this.prevContainerSize,
+          springStiffness:    this.springStiffness,
+          animationTime:      this.animationTime,
+          minZoomImageRatio:  this.minZoomImageRatio,
+          maxZoomPixelRatio:  this.maxZoomPixelRatio,
+          visibilityRatio:    this.visibilityRatio,
+          wrapHorizontal:     this.wrapHorizontal,
+          wrapVertical:       this.wrapVertical,
+          defaultZoomLevel:   this.defaultZoomLevel,
+          minZoomLevel:       this.minZoomLevel,
+          maxZoomLevel:       this.maxZoomLevel,
+          contentSize:        this.source.dimensions,
+          viewer:             this
         };
 
-        this.viewport = this.viewport ? this.viewport : new $.Viewport(viewportOptions);
-
+        this.viewport = new $.Viewport(viewportOptions);
         this.mouseTracker.viewport = this.viewport;
-
-        if( this.preserveViewport ){
-            this.viewport.resetContentSize( this.source.dimensions );
-        }
+      } else if( this.preserveViewport ) {
+          this.log.log('Preserving viewport');
+          this.viewport.resetContentSize( this.source.dimensions );
+      }
     },
     createNavigator:function() {
         // Note: By passing the fully parsed source, the navigator doesn't
@@ -1132,6 +1139,8 @@ $.extend( $.Viewer.prototype, $.EventSource.prototype, $.ControlDock.prototype, 
         this.raiseEvent( 'open-failed', event );
     },
     resizeViewportAndRecenter:function( containerSize, oldBounds, oldCenter ) {
+
+      this.log.log('ResizeViewportAndCenter %O',this);
         // This function resizes the viewport and recenters the image
         // as it was before resizing.
         // TODO: better adjust width and height. The new width and height

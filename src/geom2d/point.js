@@ -197,7 +197,9 @@ $.Point.prototype = /** @lends OpenSeadragon.Point.prototype */{
             y = Math.sin( angle ) * ( this.x - pivot.x ) + Math.cos( angle ) * ( this.y - pivot.y ) + pivot.y;
         return new $.Point( x, y );
     },
-
+    clone: function() {
+      return new $.Point(this.x, this.y);
+    },
     /**
      */
     toString: function() {

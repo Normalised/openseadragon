@@ -92,6 +92,9 @@ $.TileSource = function( width, height, tileSize, tileOverlap, minLevel, maxLeve
         };
     }
 
+
+    this.log = $.logFactory.getLogger('osd.tileSource');
+    this.log.log('Create tile source %O', options);
     //Tile sources supply some events, namely 'ready' when they must be configured
     //by asynchronously fetching their configuration data.
     $.EventSource.call( this );
@@ -351,6 +354,7 @@ $.TileSource.prototype = /** @lends OpenSeadragon.TileSource.prototype */{
                  * @property {?Object} userData - Arbitrary subscriber-defined object.
                  */
                 _this.raiseEvent( 'open-failed', { message: "Unable to load TileSource", source: url } );
+                $.console.warn('Open Failed for ' + url);
                 return;
             }
 

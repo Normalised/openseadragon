@@ -39,6 +39,8 @@
      * @memberof OpenSeadragon
      */
     $.ViewerControls = function(viewer){
+
+        this.log = $.logFactory.getLogger('osd.viewerControls');
         this.viewer = viewer;
         this.onFocusHandler = $.delegate( this, this.onFocus );
         this.onBlurHandler  = $.delegate( this, this.onBlur );
@@ -59,7 +61,7 @@
         },
         bindStandardControls:function(viewer) {
 
-            $.console.log('Bind Standard Viewer controls %O',viewer);
+            this.log.log('Bind Standard Viewer controls %O',viewer);
 
             //////////////////////////////////////////////////////////////////////////
             // Navigation Controls
@@ -175,7 +177,7 @@
             return viewer;
         },
         bindKeyControls:function() {
-            $.console.log('Bind Key Controls to Viewer %O',this.viewer);
+            this.log.log('Bind Key Controls to Viewer %O',this.viewer);
             var viewport = this.viewer.viewport;
 
             return new $.MouseTracker({
@@ -257,7 +259,7 @@
             this.zooming = false;
         },
         scheduleZoom:function() {
-            $.console.log("Schedule Zoom for Viewer : %O", this.viewer);
+            this.log.log("Schedule Zoom for Viewer : %O", this.viewer);
             $.requestAnimationFrame( this.zoomFrameHandler );
         },
         doSingleZoomIn:function() {
@@ -279,7 +281,7 @@
             }
         },
         onHome:function() {
-            $.console.log('On Home %O', this);
+            this.log.log('On Home %O', this);
             if ( this.viewer.viewport ) {
                 this.viewer.viewport.goHome();
             }
@@ -301,11 +303,11 @@
             }
         },
         onFocus:function() {
-            $.console.log('On Focus %O', this);
+            //this.log.log('On Focus %O', this);
             this.viewer.abortControlsAutoHide();
         },
         onBlur:function() {
-            $.console.log('On Blur %O', this);
+//            this.log.log('On Blur %O', this);
             this.viewer.beginControlsAutoHide();
         },
         lightUp:function() {

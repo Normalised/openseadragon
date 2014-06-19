@@ -384,12 +384,6 @@ $.Drawer.prototype = /** @lends OpenSeadragon.Drawer.prototype */{
     draw:function(bounds) {
 
         this.updateAgain = false;
-        // First adjust the bounds according to the content bounds
-        // This will determine tile clipping
-//        bounds = bounds.clone();
-//        bounds.width *= this.contentBounds.width;
-//        bounds.height *= this.contentBounds.height;
-        //var zpr = this.zeroPixelRatio.times(this.contentBounds.width);
 
         bounds = this.scaleBoundsToContent(bounds);
 
@@ -398,7 +392,6 @@ $.Drawer.prototype = /** @lends OpenSeadragon.Drawer.prototype */{
 
         // deltaPixels depends on the current zoom level
         var deltaPixels = this.deltaPixelsFromPoints( zpr, true);
-        var currentZeroRatio  = deltaPixels.x;
         // This is entirely linear and dependent on the zoom level and container size
         var czrOOMPR = deltaPixels.x * this.oneOverMinPixelRatio;
         //$.console.log('PR %O. DP %O. ZRC %s',pixelRatio, deltaPixels, zeroRatioC);
@@ -482,7 +475,7 @@ $.Drawer.prototype = /** @lends OpenSeadragon.Drawer.prototype */{
             return;
         }
         var promise = $.ImageLoader.loadImage(tile.url);
-        this.log.log('Load Tile from %s',tile.url);
+//        this.log.log('Load Tile from %s',tile.url);
         tile.loading = promise;
         var _this = this;
         promise.then(function(image){
@@ -935,7 +928,7 @@ $.Drawer.prototype = /** @lends OpenSeadragon.Drawer.prototype */{
         var br = this.deltaPixelsFromPoints(new $.Point(1,1/this.source.aspectRatio));
         ctx.strokeRect(tl.x,tl.y, br.x, br.y);
         this.viewer.renderDebugLine("Content Bounds: " + this.contentBounds.toStringFixed());
-        var b = this.viewport.getBounds(true);
+        //var b = this.viewport.getBounds(true);
         this.viewer.renderDebugLine("Scaled Bounds: " + this.scaledBounds.toStringFixed());
         this.viewer.renderDebugLine("TL: " + tl.toStringFixed());
         this.viewer.renderDebugLine("BR: " + br.toStringFixed());
@@ -997,7 +990,7 @@ $.Drawer.prototype = /** @lends OpenSeadragon.Drawer.prototype */{
         }
     },
     cleanup:function() {
-        $.console.log('Cleanup Drawer %O',this);
+        //$.console.log('Cleanup Drawer %O',this);
         // dispose of anything we created an no longer need
         this.layers = null;
         this.renderer = null;

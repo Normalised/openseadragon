@@ -66,8 +66,6 @@ $.TileSourceFactory = {
                 tileSource = tileSource[0];
             } else {
                 // There are multiple sources, each of which may need converting into TileSource instances
-                // This is where chained promises would really come in useful as each descriptor conversion could be chained
-                // and the client code always receives one promise regardless.
                 this.log.log('Tile Source Descriptor is an array of sources. %O',tileSource);
                 var sourcePromises = [];
                 for(var i=0;i<tileSource.length;i++) {
@@ -84,18 +82,6 @@ $.TileSourceFactory = {
 
         this.log.log('Create Tile Source from Descriptor %s',tileSource);
         var deferred = Q.defer();
-
-        // for now disable plain xml strings or json strings to be parsed here
-        // that way we don't have to worry about using the timeout to schedule code
-        //    if( $.type( tileSource ) == 'string' ){
-        //        $.console.log('Tile Source is a string %s',tileSource);
-        //        if( tileSource.match(/\s*<.*/) ){
-        //            tileSource = $.parseXml( tileSource );
-        //        }else if( tileSource.match(/\s*[\{\[].*/) ){
-        //            /*jshint evil:true*/
-        //            tileSource = eval( '('+tileSource+')' );
-        //        }
-        //    }
 
         if ( $.type( tileSource ) == 'string') {
             this.log.log('Tile Source is a string, assuming URL : %s',tileSource);
@@ -118,6 +104,7 @@ $.TileSourceFactory = {
                 //inline configuration
                 var $TileSource = $.TileSource.determineType( tileSource );
                 if ( !$TileSource ) {
+                    $.console.warn('Rejecting tilesource promise %O', tileSource);
                     deferred.reject(tileSource);
                 }
                 var options = $TileSource.prototype.configure.apply( configurator, [ tileSource ]);
