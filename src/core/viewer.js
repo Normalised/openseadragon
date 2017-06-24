@@ -211,7 +211,7 @@ $.extend( $.Viewer.prototype, $.EventSource.prototype, $.ControlDock.prototype, 
     openFailed:function(event) {
       this.log.warn('Couldnt open tile source %O', event);
       this.failed = true;
-      if(this.failedImage == null) {
+      if(this.failedImage === null) {
 //        this.log.log('Creating failed image');
         this.failedImage = document.createElement('img');
         this.failedImage.src = 'images/no_image.png';

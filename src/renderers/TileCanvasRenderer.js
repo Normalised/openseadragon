@@ -60,11 +60,18 @@
                 canvas.width = tile.image.width;
                 canvas.height = tile.image.height;
                 rendered = canvas.getContext('2d');
-                rendered.drawImage( tile.image, 0, 0 );
-                TILE_CACHE[ tile.url ] = rendered;
-                //since we are caching the prerendered image on a canvas
-                //allow the image to not be held in memory
-                tile.image = null;
+                // This causes an error in IE11 after the DOM7009: Unable to decode image at URL error appears
+                try {
+                    rendered.drawImage( tile.image, 0, 0 );
+                    TILE_CACHE[ tile.url ] = rendered;
+                    //since we are caching the prerendered image on a canvas
+                    //allow the image to not be held in memory
+                    tile.image = null;
+
+                } catch (e) {
+                    // this.log.warn('Error rendering tile');
+                    return;
+                }
             } else {
                 rendered = TILE_CACHE[ tile.url ];
             }
